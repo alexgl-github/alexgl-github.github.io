@@ -52,7 +52,8 @@ class Sample_Argmax(Model):
 
 # toy model with one Dense layer and one custom sample layer
 model = tf.keras.Sequential()
-model.add(Dense(num_values, activation=None, use_bias=False, kernel_initializer=tf.keras.initializers.zeros()))
+model.add(Dense(num_values, activation=None, use_bias=False,
+                kernel_initializer=tf.keras.initializers.zeros()))
 model.add(Sample_Argmax())
 
 # los function is L1 distance between predicted and actual index
@@ -63,11 +64,11 @@ def loss_fn(target, x_pred):
 # optimizer with 0.5 learning rate
 optimizer=RMSprop(lr=0.5)
 
-# Model traininig input is shuffled array of integers
+# Traininig input is shuffled array of integers
 x = np.arange(num_values).astype(np.float32)
 np.random.shuffle(x)
 
-# Model label is index of the maximum value in the array
+# and label is index of the maximum value in the array
 y = np.argmax(x)
 
 # Training loop
@@ -78,11 +79,11 @@ for idx in range(3):
         loss = loss_fn(y, pred)
         grad = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grad, model.trainable_variables))
-    print(f"Training x={x} tgt={y} pred={np.around(pred, decimals=1)} loss={loss}")
+    print(f"Training x={x} tgt={y} pred={pred:.1f)} loss={loss:.2f}")
 
 # Test
 pred = model(x)[0]
-print(f"Testing x={x} expected y={y} pred={np.around(pred, decimals=1)}")
+print(f"Testing x={x} expected y={y} pred={pred:.1f}")
 {% endhighlight %}
 
 
@@ -95,7 +96,7 @@ ValueError: No gradients provided for any variable: ['dense/kernel:0']
 This didn't quite work, because argmax function in the Sample_Argmax layer is not differentiable.
 
 The way to fix this is to approximate argmax with a low-temperature softmax, and compute a dot product of softmax output with the index array.
-Then we get a differentiable layer and can back-propagate the loss to Dense layer weights.
+Then we get a differentiable layer and can back-propagate loss to the Dense layer weights.
 
 {% highlight python %}
 import tensorflow as tf
@@ -135,9 +136,9 @@ class Sample_Softmax(Model):
 # toy model with one Dense layer and one custom sample layer
 model = tf.keras.Sequential()
 model.add(Dense(num_values, activation=None, use_bias=False, kernel_initializer=tf.keras.initializers.zeros()))
-model.add(Sample_Softmax())
+model.add(Sample_Softmax(tau=0.1))
 
-# los function is L1 distance between predicted and actual index
+# loss function is L1 distance between predicted and actual index
 def loss_fn(target, x_pred):
     x_pred = tf.cast(x=x_pred, dtype=tf.float32)
     return tf.math.reduce_sum(tf.math.abs(x_pred - target))
