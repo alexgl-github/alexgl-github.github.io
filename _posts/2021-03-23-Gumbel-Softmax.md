@@ -1,7 +1,7 @@
 ## Gumbel-Softmax
 
 For some deep learning problems we need to sample discrete data.
-Let's use a toy problem of finding index of the largest value in the input random array.
+For example, let's use a toy problem of finding index of the largest value in the input random array.
 
 Numpy implementation:
 
@@ -26,7 +26,7 @@ x=[3. 1. 0. 4. 2.] max_index=3
 As expected, the largest value in the input array [3, 1., 0., 4., 2.] is at index 3
 
 
-Now let's use a DNN to solve the same problem. First, similar to the python code, let's use Tensorflow argmax wrapped in a custom Sample_Argmax layer.
+Now let's use a DNN to solve the same problem. First, similar to the python code, we'll use Tensorflow argmax wrapped in a custom Sample_Argmax layer.
 
 {% highlight python %}
 import tensorflow as tf
@@ -56,12 +56,12 @@ model.add(Dense(num_values, activation=None, use_bias=False,
                 kernel_initializer=tf.keras.initializers.zeros()))
 model.add(Sample_Argmax())
 
-# los function is L1 distance between predicted and actual index
+# loss function is L1 distance between predicted and actual indexes
 def loss_fn(target, x_pred):
     x_pred = tf.cast(x=x_pred, dtype=tf.float32)
     return tf.math.reduce_sum(tf.math.abs(x_pred - target))
 
-# optimizer with 0.5 learning rate
+# Optimizer with 0.5 learning rate
 optimizer=RMSprop(lr=0.5)
 
 # Traininig input is shuffled array of integers
