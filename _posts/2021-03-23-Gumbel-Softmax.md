@@ -118,7 +118,7 @@ class Sample_Softmax(Model):
         self.arange = tf.range(start=0, limit=num_values, dtype=tf.float32)
 
     def call(self, x):
-        # generate  gumble noise
+        # generate  gumbel noise
         noise = np.random.gumbel(size=x.shape)
         noisy_x = x + noise
 
@@ -173,9 +173,9 @@ print(f"Testing x={x} expected y={y} pred={pred:.1f}")
 
 {% highlight bash %}
 $ python3 test.py
+Training x=[[3. 0. 1. 2. 4.]] tgt=4 predicted y=2.2 loss=1.80
+Training x=[[3. 0. 1. 2. 4.]] tgt=4 predicted y=3.5 loss=0.54
+Training x=[[3. 0. 1. 2. 4.]] tgt=4 predicted y=4.0 loss=0.00
+Testing x=[[3. 0. 1. 2. 4.]] expected y=4 predicted y=4.0
 
-Training x=[[1. 0. 4. 2. 3.]] tgt=2 predicted y=3.2 loss=1.19
-Training x=[[1. 0. 4. 2. 3.]] tgt=2 predicted y=2.6 loss=0.56
-Training x=[[1. 0. 4. 2. 3.]] tgt=2 predicted y=0.0 loss=1.99
-Testing x=[[1. 0. 4. 2. 3.]] expected y=2 predicted y=2.0
 {% endhighlight %}
