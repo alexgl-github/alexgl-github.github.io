@@ -170,6 +170,8 @@ pred = model(x)[0]
 print(f"Testing x={x} expected y={y} pred={pred:.1f}")
 {% endhighlight %}
 
+Now we can verify the gradients are backpropagated through the new Gumbel Softmax layer.
+After 3 iterations, model output matches the expected output: 
 
 {% highlight bash %}
 $ python3 test.py
