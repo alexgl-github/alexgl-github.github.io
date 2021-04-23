@@ -17,11 +17,11 @@ We assume:
 - loss function is Mean Squared Error.
 
 
-### For input vector X of size M, and dense layer with $$ M $$ inputs and $$ N $$ outputs, output Y will be:
+### For input vector X of size M, and dense layer with $$ M $$ inputs and $$ N $$ outputs, output Y is:
 
 $$ Y = X * W $$
 
-X is input vector:
+where X is input vector:
 
 $$ X = \left( \begin{array}{ccc}
 x_{0} & x_{1} & \ldots & x_{M-1} \\
@@ -32,10 +32,10 @@ $$ W $$ is weights matrix:
 
 $$
 W = \left( \begin{array}{ccc}
-w_{00} & w_{01} & \ldots & w_{0N} \\
-w_{10} & w_{11} & \ldots & w_{0N} \\
-\vdots & \vdots & \ldots & w_{0N} \\
-w_{M0} & w_{M1} & \ldots & w_{0N} \\
+w_{0,0} & w_{0,1} & \ldots & w_{0,N-1} \\
+w_{1,0} & w_{1,1} & \ldots & w_{1,N-1} \\
+\vdots & \vdots & \ldots & \vdots \\
+w_{M-1,0} & w_{M-1,1} & \ldots & w_{M-1,N-1} \\
 \end{array} \right)
 $$
 
@@ -48,8 +48,9 @@ $$
 
 $$ \hat Y $$ is expected output
 
-Mean Squred Error loss between predicted $$ Y $$ and expected $$ Y_t $$ is
+Mean Squared Error loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
 
-$$ E = frac {1} {N} \sum_{i=0}^{N-1} ({ \hat y_{i} - y_{i}) $$
+$$ E = frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i}) $$
+
 
 
