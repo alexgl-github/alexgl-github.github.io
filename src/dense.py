@@ -1,9 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam, RMSprop
-from tensorflow.keras import backend as K
+from tensorflow.keras.optimizers import RMSprop
 import numpy as np
-import timeit
 
 num_inputs = 3
 num_outputs = 2
@@ -24,9 +22,10 @@ x = np.array([2.0, 0.5, 1])
 y_true = np.array([1.5, 1.0])
 
 
-# SGD update rule for parameter w with gradient g when momentum is 0:
-# w = w - learning_rate * g
-# For simplicity make learning_rate=1.0
+# SGD update rule for parameter w with gradient g when momentum is 0 is as follows:
+#   w = w - learning_rate * g
+#
+#   For simplicity make learning_rate=1.0
 optimizer = tf.keras.optimizers.SGD(learning_rate=1.0, momentum=0.0)
 
 # Get model output y for input x, compute loss, and record gradients
@@ -60,8 +59,8 @@ print(f"loss={loss}")
 print(f"dloss_dy={dloss_dy[0].numpy()}")
 
 # print weight gradients d_loss/d_w
-print(f"grad={grad[0].numpy()}")
+print(f"grad=\n{grad[0].numpy()}")
 
 # print updated dense layer weights
-print(f"vars={model.trainable_variables[0].numpy()}")
+print(f"vars=\n{model.trainable_variables[0].numpy()}")
 
