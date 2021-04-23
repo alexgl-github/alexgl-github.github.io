@@ -17,7 +17,7 @@ We assume:
 - loss function is Mean Squared Error.
 
 
-### Forward path for input vector X of size M, and dense layer with $$ M $$ inputs and $$ N $$ outputs, output Y is:
+### Forward path for input vector X of size M, and dense layer with "$$M$$" inputs and "$$N$$" outputs, output Y is:
 
 $$ Y = X * W $$
 
@@ -28,7 +28,7 @@ x_{0} & x_{1} & \ldots & x_{M-1} \\
 \end{array} \right)
 $$
 
-$$ W $$ is weights matrix:
+"$$W$$" is weights matrix:
 
 $$
 W = \left( \begin{array}{ccc}
@@ -479,9 +479,12 @@ time dt=0.113000 usec
 
 {% endhighlight %}
 
+As one can see, forward path output of the C++ implementation mathches Python code.
+Also, gradients and Dense layer weights after backpropagation match in Python and C++ code.
+
 
 Python source code for this example is at [python_source_code] [/src/dense.py]
 C++ implementation is at [cpp_source_code] [/src/dense.cpp]
 
-[python_source_code]:  {{ site.url }}/src/dense.py
-[cpp_source_code]:  {{ site.url }}/src/dense.cpp
+[python_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/blob/main/src/dense.py
+[cpp_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/blob/main/src/dense.cpp
