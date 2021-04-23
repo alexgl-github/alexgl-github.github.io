@@ -17,19 +17,18 @@ We assume:
 - loss function is Mean Squared Error.
 
 
-### For input vector X of size M, and dense layer with M inputs and N outputs, output will be:
+### For input vector X of size M, and dense layer with $$ M $$ inputs and $$ N $$ outputs, output Y will be:
 
-$$ Y = X * W
+$$ Y = X * W $$
 
 X is input vector:
 
 $$ X = \left( \begin{array}{ccc}
-x_{00} & x_{01} & \ldots & x_{0M} \\
+x_{0} & x_{1} & \ldots & x_{M-1} \\
 \end{array} \right)
 $$
 
-
-W is weights matrix:
+$$ W $$ is weights matrix:
 
 $$
 W = \left( \begin{array}{ccc}
@@ -40,5 +39,17 @@ w_{M0} & w_{M1} & \ldots & w_{0N} \\
 \end{array} \right)
 $$
 
-$$ r = h = \sqrt{\frac {1} {2}} = \sqrt{\frac {N} {N+1}} \sqrt{\frac {N+1} {2N}} $$
+$$ Y $$ is output vector:
+
+$$ Y = \left( \begin{array}{ccc}
+y_{0} & y_{1} & \ldots & y_{N-1} \\
+\end{array} \right)
+$$
+
+$$ \hat Y $$ is expected output
+
+Mean Squred Error loss between predicted $$ Y $$ and expected $$ Y_t $$ is
+
+$$ E = frac {1} {N} \sum_{i=0}^{N-1} ({ \hat y_{i} - y_{i}) $$
+
 
