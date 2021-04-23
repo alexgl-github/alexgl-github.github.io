@@ -17,18 +17,18 @@ We assume:
 - loss function is Mean Squared Error.
 
 
-### Forward path for input vector X of size M, and dense layer with "$$M$$" inputs and "$$N$$" outputs, output Y is:
+### Forward path for input vector X of size M, and dense layer with $$M$$ inputs and $$N$$ outputs, output Y is:
 
 $$ Y = X * W $$
 
-where X is input vector:
+where $$X$$ is input vector:
 
 $$ X = \left( \begin{array}{ccc}
 x_{0} & x_{1} & \ldots & x_{M-1} \\
 \end{array} \right)
 $$
 
-"$$W$$" is weights matrix:
+$$W$$ is weights matrix:
 
 $$
 W = \left( \begin{array}{ccc}
@@ -39,7 +39,7 @@ w_{M-1,0} & w_{M-1,1} & \ldots & w_{M-1,N-1} \\
 \end{array} \right)
 $$
 
-$$ Y $$ is output vector:
+$$Y$$ is output vector:
 
 $$ Y = \left( \begin{array}{ccc}
 y_{0} & y_{1} & \ldots & y_{N-1} \\
@@ -58,7 +58,13 @@ Mean Squared Error loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
 $$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i})^2 $$
 
 
-### First, let's implement Python implementation with TF2/Keras. We''l use to validate C++ code.
+
+### Error backpropagation.
+
+
+
+
+### First, let's implement Python implementation with TF2/Keras. We'll use it to validate C++ code.
 
 
 {% highlight python %}
@@ -156,7 +162,7 @@ vars=
 
 Let's code the same example in C++
 
-{% highlight python %}
+{% highlight c++ %}
 #include <cstdio>
 #include <vector>
 #include <algorithm>
@@ -479,12 +485,13 @@ time dt=0.113000 usec
 
 {% endhighlight %}
 
-As one can see, forward path output of the C++ implementation mathches Python code.
+As one can see, forward path output of the C++ implementation matches the Python code.
 Also, gradients and Dense layer weights after backpropagation match in Python and C++ code.
 
 
-Python source code for this example is at [python_source_code] [/src/dense.py]
-C++ implementation is at [cpp_source_code] [/src/dense.cpp]
+Python source code for this example is at [dense.py] [python_source_code]
 
-[python_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/blob/main/src/dense.py
-[cpp_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/blob/main/src/dense.cpp
+C++ implementation is at [dense.cpp] [cpp_source_code]
+
+[python_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/src/dense.py
+[cpp_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/src/dense.cpp

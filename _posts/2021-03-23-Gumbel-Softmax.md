@@ -183,6 +183,6 @@ Testing x=[[3. 0. 1. 2. 4.]] expected y=4 predicted y=4.0
 {% endhighlight %}
 
 
-You can find source code for the last example at [source_code] [/src/gumbel_softmax.py]
+You can find source code for the last example at [/src/gumbel_softmax.py] [source_code]
 
-[source_code]:  {{ site.url }}/src/gumbel_softmax.py
+[source_code]: https://github.com/alexgl-github/alexgl-github.github.io/gumbel_softmax.py
