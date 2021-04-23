@@ -181,3 +181,6 @@ Training x=[[3. 0. 1. 2. 4.]] tgt=4 predicted y=4.0 loss=0.00
 Testing x=[[3. 0. 1. 2. 4.]] expected y=4 predicted y=4.0
 
 {% endhighlight %}
+
+You can find source code for the last example at:
+{% link src/gumbel_softmax.py %}
