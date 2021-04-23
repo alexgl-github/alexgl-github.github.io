@@ -171,7 +171,7 @@ print(f"Testing x={x} expected y={y} pred={pred:.1f}")
 {% endhighlight %}
 
 Now we can verify the gradients are backpropagated through the new Gumbel Softmax layer.
-After 3 iterations, model output matches the expected output: 
+After 3 iterations, model output matches the expected output:
 
 {% highlight bash %}
 $ python3 test.py
@@ -182,5 +182,7 @@ Testing x=[[3. 0. 1. 2. 4.]] expected y=4 predicted y=4.0
 
 {% endhighlight %}
 
-You can find source code for the last example at:
-{{ site.url }}/src/gumbel_softmax.py
+
+You can find source code for the last example at [source_code] [/src/gumbel_softmax.py]
+
+[source_code]:  {{ site.url }}/src/gumbel_softmax.py
