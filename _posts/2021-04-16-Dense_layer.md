@@ -42,15 +42,20 @@ $$
 $$ Y $$ is output vector:
 
 $$ Y = \left( \begin{array}{ccc}
-y_{0} & y_{1} & \ldots & y_{N-1} \\
+y_{0} & y_{1} & \ldots & y_{n-1} \\
 \end{array} \right)
 $$
 
-$$ \hat Y $$ is expected output
+$$ \hat Y $$ is expected output vector:
+
+$$ \hat Y = \left( \begin{array}{ccc}
+\hat y_{0} & \hat y_{1} & \ldots & \hat y_{n-1} \\
+\end{array} \right)
+$$
 
 Mean Squared Error loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
 
-$$ E = frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i}) $$
+$$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i}) $$
 
 
 
