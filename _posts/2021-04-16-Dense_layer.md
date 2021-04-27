@@ -68,7 +68,7 @@ by adjusting dense layer weights by $$\frac {dE} {dw_{i}}$$
 
 $$ W_{t+1} = W_{t} - \alpha * \nabla $$
 
-$$\alpha$$ is learning rate
+$$\alpha$$ is learning rate$$
 $$\nabla is error gradient$$
 
 $$
@@ -97,14 +97,16 @@ Y derivative with respect to W
 
 $$
 Y = X * W
+$$
+$$
 \frac {dY} {dW} = X
 $$
 
-Finally, dense layer weight updates are outer product of input X and loss derivative with respect to $$Y$$
+Finally, dense layer weight update is outer product of input X and loss derivative with respect to $$Y$$
 
 $$
 
-\frac {dE} {dW} = \otimes {X} {(Y - \hat {Y})}
+\frac {dE} {dW} = {X} \otimes {(Y - \hat {Y})}
 
 $$
 
@@ -171,10 +173,15 @@ y_true = np.array([1.5, 1.0])
 
 
 Use Stochastic Gradient Decent (SGD) optimizer.
-SGD weight update rule is $$W = W - LR * \nabla$$
 
-$$\triangledown$$ is weight gradient and $LR$$ is learning rate.
-For now we'll use learning rate equal to 1.0
+SGD weight update rule is
+$$
+W = W - LR * \nabla
+$$
+
+$$\nabla$$ is weight gradient and $$LR$$ is learning rate.
+
+For now we'll assume learning rate equal to 1.0
 
 
 {% highlight python %}
@@ -440,7 +447,7 @@ struct Dense
 {% endhighlight %}
 
 
-Mean Squared Error will need it's own forward and backward functions.
+Mean Squared Error class will need it's own forward and backward functions.
 
 
 {% highlight c++ %}
