@@ -17,7 +17,9 @@ We assume:
 - loss function is Mean Squared Error.
 
 
-### Forward path for input vector X of size M, and dense layer with $$M$$ inputs and $$N$$ outputs, output Y is:
+### Forward path for input vector X of size M, and dense layer with $$M$$ inputs and $$N$$ outputs
+
+Dense layer output Y is:
 
 $$ Y = X * W $$
 
@@ -53,7 +55,7 @@ $$ \hat Y = \left( \begin{array}{ccc}
 \end{array} \right)
 $$
 
-Mean Squared Error loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
+And Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
 
 $$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i})^2 $$
 
@@ -61,11 +63,66 @@ $$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i})^2 $$
 
 ### Error backpropagation.
 
+For input SSX$$, we want to minimize the MSE difference between out network output and expected output,
+by adjusting dense layer weights by $$\frac {dE} {dw_{i}}$$
+
+$$ W_{t+1} = W_{t} - \alpha * \nabla $$
 
 
+$$
+E = MSE(Y, \hat {Y})
+Y = X * W
+$$
 
-### First, let's implement Python implementation with TF2/Keras. We'll use it to validate C++ code.
+Using chain rule
 
+$$
+\frac {dE} {dW} = \frac {dE} {dY} * \frac {dY} {dW}
+$$
+
+
+Loss derivative with respect to Y
+
+$$
+
+\frac {dE} {dY} = \frac {1} {N} * 2 * (Y - \hat {Y})
+
+\frac {dE} {dY} =  (Y - \hat {Y})
+
+$$
+
+Y derivative with respect to W
+
+$$
+Y = X * W
+\frac {dY} {dW} = X
+$$
+
+Finally, dense layer weight updates are outer product of input X and loss derivative with respect to $$Y$$
+
+$$
+
+\frac {dE} {dW} = \otimes {X} {(Y - \hat {Y})}
+
+$$
+
+
+### First, let's write Python implementation with TF2/Keras. We'll use it to validate C++ code in the consecutive section.
+
+
+For this experiment I've used the following software versions:
+
+{% highlight python %}
+$ python3 -m pip freeze | grep "numpy\|tensorflow"
+numpy==1.19.5
+tensorflow==2.5.0rc2
+
+$ g++ --version
+g++ 9.3.0
+{% endhighlight %}
+
+
+Import TF and Keras. We'll define a network with 3 inputs and 2 outpus.
 
 {% highlight python %}
 
@@ -77,28 +134,59 @@ import numpy as np
 num_inputs = 3
 num_outputs = 2
 
+{% endhighlight %}
+
+Define Keras sequential network with single Dense layer.
+
+{% highlight python %}
 # Create one layer model
 model = tf.keras.Sequential()
 
 # No bias, no activation, initialize weights with 1.0
 model.add(Dense(units=num_outputs, use_bias=False, activation=None, kernel_initializer=tf.keras.initializers.ones()))
 
+{% endhighlight %}
+
+Use mean square error for the loss function.
+
+{% highlight python %}
 # use MSE as loss function
 loss_fn = tf.keras.losses.MeanSquaredError()
+
+{% endhighlight %}
+
+
+Hardcode model iput and expected model output. We'll use the same array values later in C++ implementation.
+
+{% highlight python %}
 
 # Arbitrary model input
 x = np.array([2.0, 0.5, 1])
 
 # Expected output
 y_true = np.array([1.5, 1.0])
+{% endhighlight %}
 
 
+Use Stochastic Gradient Decent (SGD) optimizer.
+SGD weight update rule is $$W = W - LR * \nabla$$
+
+$$\triangledown$$ is weight gradient and $LR$$ is learning rate.
+For now we'll use learning rate equal to 1.0
+
+
+{% highlight python %}
 # SGD update rule for parameter w with gradient g when momentum is 0 is as follows:
 #   w = w - learning_rate * g
 #
 #   For simplicity make learning_rate=1.0
 optimizer = tf.keras.optimizers.SGD(learning_rate=1.0, momentum=0.0)
+{% endhighlight %}
 
+
+In the training loop we'll compute model output for input X, compute and backpropagate the loss.
+
+{% highlight python %}
 # Get model output y for input x, compute loss, and record gradients
 with tf.GradientTape(persistent=True) as tape:
 
@@ -117,7 +205,12 @@ with tf.GradientTape(persistent=True) as tape:
     # adjust Dense layer weights
     grad = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grad, model.trainable_variables))
+{% endhighlight %}
 
+
+Finally we'll print inputs, outputs, gradients, and updated Dense layer weights.
+
+{% highlight python %}
 # print model input and output excluding batch dimention
 print(f"input x={x}")
 print(f"output y={y[0]}")
@@ -162,7 +255,11 @@ vars=
 
 Let's code the same example in C++
 
+We'll implement it using C++ STL.
+Chrono headers are included for clocks used to benchmark run time.
+
 {% highlight c++ %}
+
 #include <cstdio>
 #include <vector>
 #include <algorithm>
@@ -181,6 +278,11 @@ using std::chrono::high_resolution_clock;
 using std::chrono::duration_cast;
 using std::chrono::microseconds;
 
+{% endhighlight %}
+
+Dense layer weights initializer
+
+{% highlight c++ %}
 /*
  * Constant 1.0 weight intializer
  */
@@ -189,6 +291,13 @@ static auto ones_initializer = []() -> float
   return 1.0;
 };
 
+{% endhighlight %}
+
+
+
+Dense layer class template includes forward() and backward() functions.
+
+{% highlight c++ %}
 /*
  * Dense layer class template
  *
@@ -205,10 +314,13 @@ struct Dense
   typedef array<T, num_inputs> input_vector;
   typedef array<T, num_outputs> output_vector;
 
+  /*
+   * Layer weights
+   */
   vector<input_vector> weights;
 
   /*
-   * Dense layer constructor
+   * Dense class constructor
    */
   Dense()
   {
@@ -223,7 +335,7 @@ struct Dense
   }
 
   /*
-   * Dense layer forward pass
+   * Dense forward pass
    */
   array<T, num_outputs> forward(const input_vector& x)
   {
@@ -233,7 +345,7 @@ struct Dense
     assert(x.size() == weights[0].size());
 
     /*
-     * Layer output is dot product of input with weights
+     * Layer output is dot product of input and weights
      */
     array<T, num_outputs> activation;
     int idx = 0;
@@ -296,7 +408,7 @@ struct Dense
 
   /*
    * Helper function to convert Dense layer to string
-   * Used for printing the layer
+   * Used for printing the layer weights
    */
   operator std::string() const
   {
@@ -314,7 +426,7 @@ struct Dense
   }
 
   /*
-   * Helper function to cout Dense layer object
+   * Helper function to cout Dense layer weights
    */
   friend ostream& operator<<(ostream& os, const Dense& dense)
   {
@@ -323,6 +435,13 @@ struct Dense
   }
 
 };
+{% endhighlight %}
+
+
+Mean Squared Error will need it's own forward and backward functions.
+
+
+{% highlight c++ %}
 
 /*
  * Mean Squared Error loss class
@@ -373,6 +492,13 @@ struct MSE
 
 };
 
+{% endhighlight %}
+
+
+Finally, in the main function, we'll declare input x and expecetd output y_true arrays, containing the same values as in out Python example.
+Then we'll compute forward and backward passes, and print the network output and updated weights.
+
+{% highlight c++ %}
 
 int main(void)
 {
@@ -485,7 +611,7 @@ time dt=0.113000 usec
 
 {% endhighlight %}
 
-As one can see, forward path output of the C++ implementation matches the Python code.
+As one can verify, forward path output of the C++ implementation matches the Python code.
 Also, gradients and Dense layer weights after backpropagation match in Python and C++ code.
 
 
@@ -493,5 +619,5 @@ Python source code for this example is at [dense.py] [python_source_code]
 
 C++ implementation is at [dense.cpp] [cpp_source_code]
 
-[python_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/src/dense.py
-[cpp_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/src/dense.cpp
+[python_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/tree/main/src/dense.py
+[cpp_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/tree/main/src/dense.cpp
