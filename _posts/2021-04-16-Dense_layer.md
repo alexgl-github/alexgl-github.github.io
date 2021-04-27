@@ -63,11 +63,13 @@ $$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i})^2 $$
 
 ### Error backpropagation.
 
-For input SSX$$, we want to minimize the MSE difference between out network output and expected output,
+For input $$X$$, we want to minimize the MSE difference between out network output and expected output,
 by adjusting dense layer weights by $$\frac {dE} {dw_{i}}$$
 
 $$ W_{t+1} = W_{t} - \alpha * \nabla $$
 
+$$\alpha$$ is learning rate
+$$\nabla is error gradient$$
 
 $$
 E = MSE(Y, \hat {Y})
