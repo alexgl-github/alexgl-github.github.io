@@ -76,15 +76,11 @@ $$
 \nabla = \frac {\partial E} {\partial W}
 $$
 
-
-$$
-E = MSE(Y) \\
-Y = X * W
-$$
-
 Using chain rule
 
 $$
+E = MSE(Y) \\
+Y = X * W \\
 \frac {\partial E} {\partial W} =  \frac {\partial Y} {\partial W} * \frac {\partial E} {\partial Y}
 $$
 
@@ -97,12 +93,8 @@ $$
 Finally
 
 $$
-\frac {\partial E} {\partial W} = X^T * (\frac {2} {N} (Y - \hat {Y}))
-$$
+\frac {\partial E} {\partial W} = X^T * (\frac {2} {N} (Y - \hat {Y})) \\
 
-or
-
-$$
 \frac {\partial E} {\partial W} = X \otimes (\frac {2} {N} (Y - \hat {Y}))
 $$
 
