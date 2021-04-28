@@ -64,11 +64,13 @@ $$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
 ### Error backpropagation.
 
 For input $$X$$, we want to minimize the MSE difference between out network output and expected output,
-by adjusting dense layer weights by $$\frac \partial {E} \partial {w_{i}}$$
+by adjusting dense layer weights by $$\frac {\partial E} {\partial w_{i}}$$
 
 $$ W_{t+1} = W_{t} - \alpha * \nabla $$
 
-$$\alpha$$ is learning rate
+Here $$\alpha$$ is learning rate
+
+and $$\nabla$$ is error gradient with regards to weights.
 
 Lets find error gradient $$\nabla$$
 
@@ -80,7 +82,9 @@ Using chain rule
 
 $$
 E = MSE(Y) \\
+\\
 Y = X * W \\
+\\
 \frac {\partial E} {\partial W} =  \frac {\partial Y} {\partial W} * \frac {\partial E} {\partial Y}
 $$
 
@@ -94,7 +98,7 @@ Finally
 
 $$
 \frac {\partial E} {\partial W} = X^T * (\frac {2} {N} (Y - \hat {Y})) \\
-
+\\
 \frac {\partial E} {\partial W} = X \otimes (\frac {2} {N} (Y - \hat {Y}))
 $$
 
