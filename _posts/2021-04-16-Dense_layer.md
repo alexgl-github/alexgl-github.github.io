@@ -57,56 +57,40 @@ $$
 
 And Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
 
-$$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat y_{i} - y_{i})^2 $$
+$$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
 
 
 
 ### Error backpropagation.
 
 For input $$X$$, we want to minimize the MSE difference between out network output and expected output,
-by adjusting dense layer weights by $$\frac {dE} {dw_{i}}$$
+by adjusting dense layer weights by $$\frac \partial {E} \partial {w_{i}}$$
 
 $$ W_{t+1} = W_{t} - \alpha * \nabla $$
 
-$$\alpha$$ is learning rate$$
+$$\alpha$$ is learning rate
+
 $$\nabla is error gradient$$
 
 $$
-E = MSE(Y, \hat {Y})
+E = f(Y) \\
 Y = X * W
 $$
 
 Using chain rule
 
 $$
-\frac {dE} {dW} = \frac {dE} {dY} * \frac {dY} {dW}
-$$
+\frac {\partial E} {\partial W} =  \frac {\partial Y} {\partial W} * \frac {\partial E} {\partial Y}\\
 
+where \\
 
-Loss derivative with respect to Y
+\frac {\partial E} {\partial Y} =  \frac {2} {N} (Y - \hat {Y}) \\
 
-$$
+\frac {\partial E} {\partial W} = X^T * (\frac {2} {N} (Y - \hat {Y})) \\
 
-\frac {dE} {dY} = \frac {1} {N} * 2 * (Y - \hat {Y})
+or
 
-\frac {dE} {dY} =  (Y - \hat {Y})
-
-$$
-
-Y derivative with respect to W
-
-$$
-Y = X * W
-$$
-$$
-\frac {dY} {dW} = X
-$$
-
-Finally, dense layer weight update is outer product of input X and loss derivative with respect to $$Y$$
-
-$$
-
-\frac {dE} {dW} = {X} \otimes {(Y - \hat {Y})}
+\frac {\partial E} {\partial W} = X^T \otimes (\frac {2} {N} (Y - \hat {Y})) \\
 
 $$
 
