@@ -70,28 +70,40 @@ $$ W_{t+1} = W_{t} - \alpha * \nabla $$
 
 $$\alpha$$ is learning rate
 
-$$\nabla is error gradient$$
+Lets find error gradient $$\nabla$$
 
 $$
-E = f(Y) \\
+\nabla = \frac {\partial E} {\partial W}
+$$
+
+
+$$
+E = MSE(Y) \\
 Y = X * W
 $$
 
 Using chain rule
 
 $$
-\frac {\partial E} {\partial W} =  \frac {\partial Y} {\partial W} * \frac {\partial E} {\partial Y}\\
+\frac {\partial E} {\partial W} =  \frac {\partial Y} {\partial W} * \frac {\partial E} {\partial Y}
+$$
 
-where \\
+where
 
+$$
 \frac {\partial E} {\partial Y} =  \frac {2} {N} (Y - \hat {Y}) \\
+$$
 
-\frac {\partial E} {\partial W} = X^T * (\frac {2} {N} (Y - \hat {Y})) \\
+Finally
+
+$$
+\frac {\partial E} {\partial W} = X^T * (\frac {2} {N} (Y - \hat {Y}))
+$$
 
 or
 
-\frac {\partial E} {\partial W} = X^T \otimes (\frac {2} {N} (Y - \hat {Y})) \\
-
+$$
+\frac {\partial E} {\partial W} = X \otimes (\frac {2} {N} (Y - \hat {Y}))
 $$
 
 
