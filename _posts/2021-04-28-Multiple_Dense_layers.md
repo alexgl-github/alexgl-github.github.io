@@ -2,7 +2,7 @@
 layout: post
 mathjax: true
 title:  "Dense layer with backpropagation in C++", part 2
-date:   2021-04-16 23:41:54 +0000
+date:   2021-04-28 00:00:00 +0000
 categories: github jekyll
 ---
 
