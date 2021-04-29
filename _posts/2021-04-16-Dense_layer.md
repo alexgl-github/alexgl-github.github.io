@@ -77,8 +77,8 @@ Lets find error gradient  $$\frac {\partial E} {\partial W}$$
 Using chain rule
 
 $$
-E = MSE(Y) \\\\
-Y = X * W \\\\
+E = MSE(Y) \\\\\\
+Y = X * W \\\\\\
 \frac {\partial E} {\partial W} =  \frac {\partial Y} {\partial W} * \frac {\partial E} {\partial Y}
 $$
 
@@ -91,8 +91,8 @@ $$
 Finally
 
 $$
-\frac {\partial E} {\partial W} = X^T * \Bigl(\frac {2} {N} (Y - \hat {Y})\Bigr) \\\\
-\frac {\partial E} {\partial W} = X \otimes \Bigl(\frac {2} {N} (Y - \hat {Y})\Bigr)
+\frac {\partial E} {\partial W} = X^T * \Biggl(\frac {2} {N} (Y - \hat {Y})\Biggr) \\\\\\
+\frac {\partial E} {\partial W} = X \otimes \Biggl(\frac {2} {N} (Y - \hat {Y})\Biggr)
 $$
 
 
