@@ -114,7 +114,7 @@ class Sample_Softmax(Model):
 
     def __init__(self, num_values=5, tau=1.0):
         super(Sample_Softmax, self).__init__()
-        self.tau = 1.0
+        self.tau = tau
         self.arange = tf.range(start=0, limit=num_values, dtype=tf.float32)
 
     def call(self, x):
@@ -136,7 +136,7 @@ class Sample_Softmax(Model):
 # toy model with one Dense layer and one custom sample layer
 model = tf.keras.Sequential()
 model.add(Dense(num_values, activation=None, use_bias=False, kernel_initializer=tf.keras.initializers.zeros()))
-model.add(Sample_Softmax(tau=0.1))
+model.add(Sample_Softmax(tau=0.75))
 
 # loss function is L1 distance between predicted and actual index
 def loss_fn(target, x_pred):
