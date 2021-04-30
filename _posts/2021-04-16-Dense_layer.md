@@ -85,7 +85,11 @@ $$
 where
 
 $$
-\frac {\partial E} {\partial Y} =  \frac {2} {N} (Y - \hat {Y}) \\
+\frac {\partial E} {\partial Y} = \frac {2} {N} (Y - \hat {Y})
+$$
+
+$$
+\frac {\partial Y} {\partial W} = X^T
 $$
 
 Finally
