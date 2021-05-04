@@ -15,6 +15,8 @@ We'll use C++ example from the previous post,
 
 {{ site.baseurl }}{% link _posts/2021-04-28-Multiple_Dense_layers.md %}
 
+{% post_url 2021-04-16-Dense_layer %}
+
 changing Dense backpropagation function to eturn gradients used
 as input to previous layer.
 
