@@ -20,4 +20,4 @@ We'll use C++ example from the [previous post]  [previous post],
 changing Dense backpropagation function to eturn gradients used
 as input to previous layer.
 
-[previois_post]:  {2021-04-28-Multiple_Dense_layers.md}
+[previous_post]:  {2021-04-28-Multiple_Dense_layers.md}
