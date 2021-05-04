@@ -71,12 +71,12 @@ struct Dense
      * Layer output is dot product of input with weights
      */
     array<T, num_outputs> activation;
-    int idx = 0;
-    for (auto w: weights)
-      {
-        T val = inner_product(x.begin(), x.end(), w.begin(), 0.0);
-        activation[idx++] = val;
-      }
+    transform(weights.begin(), weights.end(), activation.begin(), [x](const input_vector& w)
+              {
+                T val = inner_product(x.begin(), x.end(), w.begin(), 0.0);
+                return val;
+              }
+              );
 
     return activation;
   }
