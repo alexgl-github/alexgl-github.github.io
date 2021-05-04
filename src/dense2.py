@@ -12,10 +12,10 @@ num_outputs = 2
 model = tf.keras.Sequential()
 
 # No bias, no activation, initialize weights with 1.0
-l1 = Dense(units=num_inputs, use_bias=False, activation=None, kernel_initializer=tf.keras.initializers.ones())
-l2 = Dense(units=num_outputs, use_bias=False, activation=None, kernel_initializer=tf.keras.initializers.ones())
-model.add(l1)
-model.add(l2)
+layer1 = Dense(units=num_inputs, use_bias=False, activation=None, kernel_initializer=tf.keras.initializers.ones())
+layer2 = Dense(units=num_outputs, use_bias=False, activation=None, kernel_initializer=tf.keras.initializers.ones())
+model.add(layer1)
+model.add(layer2)
 
 # use MSE as loss function
 loss_fn = tf.keras.losses.MeanSquaredError()
@@ -50,19 +50,20 @@ with tf.GradientTape(persistent=True) as tape:
     # loss gradient with respect to loss input y
     dloss_dy = tape.gradient(loss, y)
 
-    print("vars={}".format([v.numpy() for v in model.trainable_variables]))
     # adjust Dense layer weights
     grad = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grad, model.trainable_variables))
 
 # print model input and output excluding batch dimention
-print(f"x={x} y_true={y_true} y={y[0]}")
+# print model input and output excluding batch dimention
+print(f"input x={x}")
+print(f"output y={y[0]}")
+print(f"expected output y_true={y_true}")
 
 # print MSE loss
 print(f"loss={loss}")
 
 # print loss gradients
-print(f"dy_dw=\n{dy_dw[0].numpy()}")
 print("dloss_dy=\n{}".format([v.numpy() for v in dloss_dy]))
 
 # print weight gradients d_loss/d_w
@@ -73,5 +74,6 @@ print("grad=\n{}".format([v.numpy() for v in grad]))
 print(f"outer prod=\n{np.outer(x, dloss_dy[0].numpy())}")
 
 # print updated dense layer weights
-print("upd. vars=\n{}".format([v.numpy() for v in model.trainable_variables]))
+print("updated weights=")
+print(*[v.numpy() for v in model.trainable_variables], sep="\n")
 

@@ -13,6 +13,8 @@ We'll use C++ example from the previous post,
 
 "Dense layer with backpropagation in C++"
 
+{{ site.baseurl }}{% link _posts/2021-04-28-Multiple_Dense_layers.md %}
+
 changing Dense backpropagation function to eturn gradients used
 as input to previous layer.
 
