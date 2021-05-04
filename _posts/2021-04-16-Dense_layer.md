@@ -357,9 +357,9 @@ struct Dense
   }
 
   /*
-   * Dnse layer backward pass
+   * Dense layer backward pass
    */
-  void backward(input_vector& input, output_vector dloss_dy)
+  void backward(const input_vector& input, const output_vector& dloss_dy)
   {
     /*
      * Weight update according to SGD algorithm with momentum = 0.0 is:
@@ -384,11 +384,11 @@ struct Dense
      * dw = outer(x, de_dy)
      */
     vector<input_vector> dw;
-    for (auto dloss_dyi: dloss_dy)
+    for (auto const& dloss_dyi: dloss_dy)
       {
         auto row = input;
         for_each(row.begin(), row.end(), [dloss_dyi](T &xi){ xi *= dloss_dyi;});
-        dw.push_back(row);
+        dw.emplace_back(row);
       }
 
     /*
@@ -396,7 +396,7 @@ struct Dense
      * assume learning rate = 1.0
      */
     transform(weights.begin(), weights.end(), dw.begin(), weights.begin(),
-              [](input_vector& left, input_vector& right)
+              [](input_vector& left, const input_vector& right)
               {
                 transform(left.begin(), left.end(), right.begin(), left.begin(), minus<T>());
                 return left;
@@ -453,10 +453,10 @@ struct MSE
   /*
    * Forward pass computes MSE loss for inputs yhat (label) and y (predicted)
    */
-  static T forward(array<T, num_inputs> yhat, array<T, num_inputs> y)
+  static T forward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
   {
     T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
-                              [](T& left, T& right)
+                              [](const T& left, const T& right)
                               {
                                 return (left - right) * (left - right);
                               }
@@ -475,12 +475,12 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(array<T, num_inputs> yhat, array<T, num_inputs> y)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& yhat, cost array<T, num_inputs>& y)
   {
     array<T, num_inputs> de_dy;
 
     transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
-              [](T& left, T& right)
+              [](const T& left, const T& right)
               {
                 return 2 * (right - left) / num_inputs;
               }
