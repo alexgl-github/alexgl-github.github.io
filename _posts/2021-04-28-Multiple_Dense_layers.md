@@ -9,7 +9,7 @@ categories: github jekyll
 ## Dense layer with backpropagation in C++, part 2
 
 Let's implement two Dense layer neural-network in C++.
-We'll use C++ example from the previous post,
+We'll use C++ example from the [previous post]  [previous post],
 
 "Dense layer with backpropagation in C++"
 
@@ -20,3 +20,4 @@ We'll use C++ example from the previous post,
 changing Dense backpropagation function to eturn gradients used
 as input to previous layer.
 
+[previois_post]:  {2021-04-28-Multiple_Dense_layers.md}
