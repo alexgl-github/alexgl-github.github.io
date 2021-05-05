@@ -71,9 +71,7 @@ Adjustment for dense layer 2 weights is going to be the same as in the previous 
 Let's find weight adjustment for the weights of dense layer 1.
 
 
-$$ Y = Y_{1} * W_{2} $$
-
-$$ Y_{1} = X * W_{1} $$
+$$ Y = X * W_{1} * W_{2} $$
 
 Using chain rule
 
@@ -100,7 +98,7 @@ $$
 
 Finally:
 
-$$ \frac {\partial E} {\partial W_{1}} = \frac {2} {N * (Y - \hat {Y})} * W_{2}^T * X^T $$
+$$ \frac {\partial E} {\partial W_{1}} = \frac {2 * (Y - \hat {Y})} {N} * W_{2}^T * X^T $$
 
 in C++ implementation we'll compute $$\frac {2 * (Y - \hat {Y})} {N} * W_{2}^T$$ as output of backward() function of the dense layer.
 This will allow us to feed backward() output of a layer as input to backward() function for the previous layer.
