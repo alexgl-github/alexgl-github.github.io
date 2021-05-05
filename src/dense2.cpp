@@ -6,6 +6,7 @@
 #include <array>
 #include <chrono>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <functional>
 #include <array>
@@ -19,7 +20,7 @@ using std::chrono::microseconds;
 /*
  * Print helper function
  */
-auto print_fn = [](const float& x)  -> void {printf("%.5f ", x);};
+auto print_fn = [](const float& x)  -> void {printf("%.1f ", x);};
 
 /*
  * Constant 1.0 weight intializer
@@ -122,6 +123,7 @@ struct Dense
       }
 
     /*
+     * Compute backpropagated gradient
      */
     input_vector ret;
     transform(weights.begin(), weights.end(), ret.begin(),
@@ -151,19 +153,20 @@ struct Dense
    */
   operator std::string() const
   {
-    string ret;
+    std::ostringstream ret;
+    ret.precision(1);
 
     for (int y=0; y < weights[0].size(); y++)
       {
         for (int x=0; x < weights.size(); x++)
           {
             if (weights[x][y] >= 0)
-              ret += " ";
-            ret += to_string(weights[x][y]) + " ";
+              ret << " ";
+            ret << std::fixed << weights[x][y] << " ";
           }
-        ret += "\n";
+        ret << std::endl;
       }
-    return ret;
+    return ret.str();
   }
 
   /*
@@ -279,11 +282,11 @@ int main(void)
   /*
    * Print DNN output y
    */
-  printf("outut y1=");
+  printf("output y1=");
   for_each(y1.begin(), y1.end(), print_fn);
   printf("\n");
 
-  printf("outut y2=");
+  printf("output y2=");
   for_each(y2.begin(), y2.end(), print_fn);
   printf("\n");
 
@@ -301,10 +304,7 @@ int main(void)
    * Back propagate loss
    */
   auto bw2 = dense2.backward(y1, dloss_dy);
-  printf("bw2: ");
-  for_each(bw2.begin(), bw2.end(), print_fn);
-  printf("\n");
-  dense1.backward(x, bw2);
+  auto bw1 = dense1.backward(x, bw2);
 
   /*
    * print dloss/dy
@@ -316,13 +316,13 @@ int main(void)
   /*
    * Print updated Dense layer weights
    */
-  printf("updated dense1 layer weights:\n%s", ((string)dense1).c_str());
-  printf("updated dense2 layer weights:\n%s", ((string)dense2).c_str());
+  printf("updated dense 1 layer weights:\n%s", ((string)dense1).c_str());
+  printf("updated dense 2 layer weights:\n%s", ((string)dense2).c_str());
 
   /*
    * Print average latency
    */
   printf("time dt=%f usec\n", dt_us);
 
-return 0;
+  return 0;
 }

@@ -3,7 +3,6 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras import backend as K
 import numpy as np
-import timeit
 
 num_inputs = 2
 num_outputs = 2
@@ -21,7 +20,7 @@ model.add(layer2)
 loss_fn = tf.keras.losses.MeanSquaredError()
 
 # Arbitrary model input
-x = np.array([2.0, 0.5]) #, 1])
+x = np.array([2.0, 0.5])
 
 # Expected output
 y_true = np.array([2.0, 1.0])
@@ -55,7 +54,6 @@ with tf.GradientTape(persistent=True) as tape:
     optimizer.apply_gradients(zip(grad, model.trainable_variables))
 
 # print model input and output excluding batch dimention
-# print model input and output excluding batch dimention
 print(f"input x={x}")
 print(f"output y={y[0]}")
 print(f"expected output y_true={y_true}")
@@ -64,14 +62,10 @@ print(f"expected output y_true={y_true}")
 print(f"loss={loss}")
 
 # print loss gradients
-print("dloss_dy=\n{}".format([v.numpy() for v in dloss_dy]))
+print("dloss_dy={}".format(*[v.numpy() for v in dloss_dy]))
 
 # print weight gradients d_loss/d_w
-print("grad=\n{}".format([v.numpy() for v in grad]))
-
-# print outer product of model inut and loss gradients
-# this is expected to be the same as previous weight gradients
-print(f"outer prod=\n{np.outer(x, dloss_dy[0].numpy())}")
+print("grad=\n{}".format(*[v.numpy() for v in grad]))
 
 # print updated dense layer weights
 print("updated weights=")
