@@ -8,7 +8,7 @@ categories: github jekyll
 
 ## Dense layer with backpropagation in C++, part 2
 
-Let's implement two Dense layer neural-network in C++.
+Let's implement two layer neural-network in C++.
 
 As a staring point we'll use source code from ["Dense layer with backpropagation in C++"] [previous_post]
 
@@ -22,9 +22,9 @@ Again, to keep it simple we'll assume:
 
 Two layer neural net output $$Y$$ is:
 
-$$ Y = Y_{1} * W_{2} $$
-
 $$ Y_{1} = X * W_{1} $$
+
+$$ Y = Y_{1} * W_{2} $$
 
 where
 
@@ -86,11 +86,7 @@ $$ \frac {\partial E} {\partial W_{1}} =  \frac {\partial E} {\partial Y} * \fra
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2} {N * (Y - \hat {Y})}
-$$
-
-$$
-\frac {\partial Y_{1}} {\partial W_{1}} = X^T
+\frac {\partial E} {\partial Y} = \frac {2 * (Y - \hat {Y})} {N}
 $$
 
 $$
@@ -98,14 +94,15 @@ $$
 $$
 
 $$
-\frac {\partial Y} {\partial Y_{1}} = \frac {\partial (Y_{1} * W_{2}} {\partial Y_{1}}
+\frac {\partial Y_{1}} {\partial W_{1}} = X^T
 $$
+
 
 Finally:
 
-$$ \frac {\partial E} {\partial W_{1}} = \frac {2} {N * (Y - \hat {Y})} * W_{2}^T * X^T
+$$ \frac {\partial E} {\partial W_{1}} = \frac {2} {N * (Y - \hat {Y})} * W_{2}^T * X^T $$
 
-in C++ implementation we'll compute $$\frac {2} {N * (Y - \hat {Y})} * W_{2}^T$$ as output of backward() function of the dense layer.
+in C++ implementation we'll compute $$\frac {2 * (Y - \hat {Y})} {N} * W_{2}^T$$ as output of backward() function of the dense layer.
 This will allow us to feed backward() output of a layer as input to backward() function for the previous layer.
 
 
@@ -595,9 +592,9 @@ time dt=0.187000 usec
 As one can verify, forward path output of the C++ implementation matches the Python code.
 Also, gradients and Dense layer weights after backpropagation match in Python and C++ code.
 
-Python source code for this example is at [dense.py] [python_source_code]
+Python source code for this example is at [dense2.py] [python_source_code]
 
-C++ implementation is at [dense.cpp] [cpp_source_code]
+C++ implementation is at [dense2.cpp] [cpp_source_code]
 
 [previous_post]:  https://alexgl-github.github.io/github/jekyll/2021/04/16/Dense_layer.html
 [python_source_code]:  https://github.com/alexgl-github/alexgl-github.github.io/tree/main/src/dense2.py
