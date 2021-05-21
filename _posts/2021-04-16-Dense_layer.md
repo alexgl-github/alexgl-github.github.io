@@ -6,7 +6,7 @@ date:   2021-04-16 23:41:54 +0000
 categories: github jekyll
 ---
 
-## Dense layer with backpropagation in C++
+## Dense layer with backpropagation in C++, part 1
 
 Let's code a simple one layer DNN in C++.
 The network should support forward and back propagation.
