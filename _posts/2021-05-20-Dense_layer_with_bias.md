@@ -8,7 +8,7 @@ categories: github jekyll
 
 ## Dense layer with backpropagation in C++, part 3
 
-In this post I'll modify the previous example, adding bias to the DNN dense layers.
+In this post I'll modify the previous example adding bias to the DNN dense layers.
 
 Previous example can be found at ["Dense layer with backpropagation in C++, part 2"] [previous_post]
 
@@ -72,7 +72,7 @@ $$\frac {\partial E} {\partial W_{2}}$$, $$\frac {\partial E} {\partial B_{2}}$$
 
 Weights adjustment for both layers has not changes from the previous example.
 
-Let's find bias adjustment for the weights of dense layer 2.
+Let's find bias adjustment of dense layer 2.
 
 $$ Y = Y_{1} * W_{2} + B_{2} $$
 
@@ -102,9 +102,9 @@ $$ Y = Y_{1} * W_{2} + B_{2} $$
 
 $$ Y_{1} = X * W_{1} + B_{1} $$
 
-$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial B_{1}}
+$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial B_{1}} $$
 
-$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial Y_{1}} * \frac {\partial Y_{1}} {\partial B_{1}}
+$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial Y_{1}} * \frac {\partial Y_{1}} {\partial B_{1}} $$
 
 where
 
@@ -122,7 +122,7 @@ $$
 
 Finally, layer 1 bias update is
 
-$$ \frac {\partial E} {\partial B_{1}} = \frac {2 * (Y - \hat {Y})} {N} * W_{2}^T
+$$ \frac {\partial E} {\partial B_{1}} = \frac {2 * (Y - \hat {Y})} {N} * W_{2}^T $$
 
 
 
