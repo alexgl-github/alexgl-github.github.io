@@ -108,10 +108,16 @@ struct Dense
      * For simplicity assume learning_rate = 1.0
      *
      * d_loss/dw = dloss/dy * dy/dw
+     * d_loss/dbias = dloss/dy * dy/dbias
+     *
+     * dloss/dy is input gradient grad
      *
      * dy/dw is :
-     *  y = w[0]*x[0] + w[1] * x[1] +... + w[n] * x[n]
+     *  y = w[0]*x[0] + w[1] * x[1] +... + w[n] * x[n] + bias
      *  dy/dw[i] = x[i]
+     *
+     * dy/dbias is :
+     *  dy/dbias = 1
      *
      * For clarity we:
      *  assume learning_rate = 1.0
@@ -168,7 +174,7 @@ struct Dense
 
   /*
    * Helper function to convert Dense layer to string
-   * Used for printing the layer
+   * Used for printing the layer weights and biases
    */
   operator std::string() const
   {
@@ -284,12 +290,6 @@ int main(void)
   Dense<num_inputs, num_outputs> dense1;
   Dense<num_inputs, num_outputs> dense2;
   MSE<num_outputs> mse_loss;
-
-  /*
-   * Print initial Dense layers weights
-   */
-  printf("Initial dense 1 layer weights:\n%s", ((string)dense1).c_str());
-  printf("Initial dense 2 layer weights:\n%s", ((string)dense2).c_str());
 
   /*
    * Compute Dense layer output y for input x
