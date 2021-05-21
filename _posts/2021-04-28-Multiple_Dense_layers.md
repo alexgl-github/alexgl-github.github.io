@@ -121,7 +121,7 @@ g++ 9.3.0
 
 Python code will be very similar to Python sample from the prevoius post.
 
-Import TF and Keras. We'll define a network with 3 inputs and 2 outpus.
+Import TF and Keras. We'll define a network with 2 inputs and 2 outpus.
 
 {% highlight python %}
 
@@ -137,7 +137,7 @@ num_outputs = 2
 
 {% highlight python %}
 
-# Create one layer model
+# Create two layer model
 model = tf.keras.Sequential()
 
 # No bias, no activation, initialize weights with 1.0
@@ -316,6 +316,39 @@ Dense layer class template includes forward() and backward() functions.
 Backward() function was modified from the previous example to return backpropagated gradient.
 
 {% highlight c++ %}
+/*
+ * Dense layer class template
+ *
+ * Parameters:
+ *  num_inputs: number of inputs to Dense layer
+ *  num_outputs: number of Dense layer outputs
+ *  T: input, output, and weights type in the dense layer
+ *  initializer: weights initializer function
+ */
+template<size_t num_inputs, size_t num_outputs, typename T = float, T (*initializer)()=ones_initializer>
+struct Dense
+{
+
+  typedef array<T, num_inputs> input_vector;
+  typedef array<T, num_outputs> output_vector;
+
+  vector<input_vector> weights;
+
+  /*
+   * Dense layer constructor
+   */
+  Dense()
+  {
+    /*
+     * Create num_outputs x num_inputs matric
+     */
+    weights.resize(num_outputs);
+    for (input_vector& w: weights)
+      {
+        generate(w.begin(), w.end(), *initializer);
+      }
+  }
+
   /*
    * Dense layer backward pass
    */
