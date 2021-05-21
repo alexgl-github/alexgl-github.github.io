@@ -55,7 +55,7 @@ $$
 
 And Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$
 
-Los function hs not changed from the previos example.
+Los function has not changed from the previos example.
 
 $$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
 
@@ -72,7 +72,7 @@ $$\frac {\partial E} {\partial W_{2}}$$, $$\frac {\partial E} {\partial B_{2}}$$
 
 Weights adjustment for both layers has not changes from the previous example.
 
-Let's find bias adjustment of dense layer 2.
+### Let's find bias adjustment of dense layer 2.
 
 $$ Y = Y_{1} * W_{2} + B_{2} $$
 
@@ -96,7 +96,7 @@ Finally, layer 2 bias update is
 $$ \frac {\partial E} {\partial B_{2}} = \frac {2 * (Y - \hat {Y})} {N} $$
 
 
-Bias adjustment for the weights of dense layer 1.
+### Bias adjustment for the weights of dense layer 1.
 
 $$ Y = Y_{1} * W_{2} + B_{2} $$
 
