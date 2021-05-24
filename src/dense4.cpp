@@ -325,18 +325,19 @@ int main(void)
   /*
    * Create dense layer and MSE loss
    */
-  typedef Sigmoid<num_outputs> sigmoid;
   Dense<num_inputs, num_outputs> dense1;
   Dense<num_inputs, num_outputs> dense2;
+  Sigmoid<num_outputs> sigmoid1;
+  Sigmoid<num_outputs> sigmoid2;
   MSE<num_outputs> mse_loss;
 
   /*
    * Compute Dense layer output y for input x
    */
   auto y1 = dense1.forward(x);
-  auto y2 = sigmoid::forward(y1);
+  auto y2 = sigmoid1.forward(y1);
   auto y3 = dense2.forward(y2);
-  auto y4 = sigmoid::forward(y3);
+  auto y4 = sigmoid2.forward(y3);
 
   /*
    * Copute MSE loss for output y and labe yhat
@@ -381,9 +382,9 @@ int main(void)
   /*
    * Back propagate loss
    */
-  auto bw4 = sigmoid::backward(y3, dloss_dy);
+  auto bw4 = sigmoid1.backward(y3, dloss_dy);
   auto bw3 = dense2.backward(y2, bw4);
-  auto bw2 = sigmoid::backward(y1, bw3);
+  auto bw2 = sigmoid2.backward(y1, bw3);
   auto bw1 = dense1.backward(x, bw2);
 
   /*
