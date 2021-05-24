@@ -7,7 +7,7 @@ import numpy as np
 num_inputs = 2
 num_outputs = 2
 
-# Create one layer model
+# Create sequential model
 model = tf.keras.Sequential()
 
 # No activation

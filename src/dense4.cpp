@@ -225,6 +225,44 @@ struct Dense
 };
 
 /*
+ * Sigmoid layer class template
+ */
+template<size_t num_inputs, typename T = float>
+struct Sigmoid
+{
+  typedef array<T, num_inputs> input_vector;
+
+  static input_vector forward(const input_vector& y)
+  {
+    input_vector ret;
+
+    transform(y.begin(), y.end(), ret.begin(),
+              [](const T& yi)
+              {
+                T out = 1.0  / (1.0 + expf(-yi));
+                return out;
+              });
+    return ret;
+  }
+
+  static input_vector backward(const input_vector& y, input_vector grad)
+  {
+    input_vector ret;
+
+    transform(y.begin(), y.end(), grad.begin(), ret.begin(),
+              [](const T& y_i, const T& grad_i)
+              {
+                T s = 1.0  / (1.0 + expf(-y_i));
+                T out = grad_i * s * (1 - s);
+                return out;
+              });
+    return ret;
+  }
+
+};
+
+
+/*
  * Mean Squared Error loss class
  * Parameters:
  *  num_inputs: number of inputs to MSE function.
@@ -275,42 +313,6 @@ struct MSE
   }
 
 };
-
-
-template<size_t num_inputs, typename T = float>
-struct Sigmoid
-{
-  typedef array<T, num_inputs> input_vector;
-
-  static input_vector forward(const input_vector& y)
-  {
-    input_vector ret;
-
-    transform(y.begin(), y.end(), ret.begin(),
-              [](const T& yi)
-              {
-                T out = 1.0  / (1.0 + expf(-yi));
-                return out;
-              });
-    return ret;
-  }
-
-  static input_vector backward(const input_vector& y, input_vector grad)
-  {
-    input_vector ret;
-
-    transform(y.begin(), y.end(), grad.begin(), ret.begin(),
-              [](const T& y_i, const T& grad_i)
-              {
-                T s = 1.0  / (1.0 + expf(-y_i));
-                T out = grad_i * s * (1 - s);
-                return out;
-              });
-    return ret;
-  }
-
-};
-
 
 
 int main(void)
@@ -382,9 +384,9 @@ int main(void)
   /*
    * Back propagate loss
    */
-  auto bw4 = sigmoid1.backward(y3, dloss_dy);
+  auto bw4 = sigmoid2.backward(y3, dloss_dy);
   auto bw3 = dense2.backward(y2, bw4);
-  auto bw2 = sigmoid2.backward(y1, bw3);
+  auto bw2 = sigmoid1.backward(y1, bw3);
   auto bw1 = dense1.backward(x, bw2);
 
   /*
