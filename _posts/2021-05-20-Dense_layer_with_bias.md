@@ -6,7 +6,7 @@ date:   2021-05-20 00:00:00 +0000
 categories: github jekyll
 ---
 
-## Dense layer with backpropagation in C++, part 3
+### Dense layer with backpropagation and bias in C++, part 3
 
 In this post I'll modify the previous example adding bias to the DNN dense layers.
 

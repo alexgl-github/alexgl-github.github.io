@@ -101,7 +101,7 @@ struct Dense
   /*
    * Dense layer backward pass
    */
-  input_vector backward(input_vector& input, output_vector grad)
+  input_vector backward(const input_vector& input, const output_vector grad)
   {
     /*
      * Weight update according to SGD algorithm with momentum = 0.0 is:
@@ -245,7 +245,7 @@ struct Sigmoid
     return ret;
   }
 
-  static input_vector backward(const input_vector& y, input_vector grad)
+  static input_vector backward(const input_vector& y, const input_vector grad)
   {
     input_vector ret;
 
