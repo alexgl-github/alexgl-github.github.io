@@ -6,7 +6,7 @@ date:   2021-04-28 00:00:00 +0000
 categories: github jekyll
 ---
 
-### Two layer NN with backpropagation in C++, part 2
+### Two layer NN with backpropagation in C++
 
 I'll implement a two layer neural-network in C++.
 
