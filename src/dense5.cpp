@@ -13,7 +13,6 @@
 #include <iterator>
 #include <cmath>
 
-
 using namespace std;
 using std::chrono::high_resolution_clock;
 using std::chrono::duration_cast;
@@ -370,6 +369,9 @@ struct Softmax
     y = forward(x);
     int s_i_j = 0;
 
+    /*
+     * Compute Jacobian of Softmax
+     */
     for (auto y_i: y)
       {
         auto row = y;
@@ -379,6 +381,9 @@ struct Softmax
         J.push_back(row);
       }
 
+    /*
+     * Compute dot product of gradient and Softmax Jacobian
+     */
     transform(J.begin(), J.end(), grad_out.begin(),
               [grad_inp](const input_vector& j)
               {
@@ -389,25 +394,6 @@ struct Softmax
 
     return grad_out;
 
-    #if 0
-    transform(y.begin(), y.end(), x.begin(),
-              [&sum](const T& y_i)
-              {
-                T e_i = expf(y_i);
-                return e_i * (sum - e_i) / (sum * sum);
-              });
-
-
-    transform(x.begin(), x.end(), grad.begin(), x1.begin(),
-              [&sum](const T& x_i, const T& grad_i)
-              {
-                return x_i * grad_i;
-              });
-    printf("softmax bw output:\n");
-    for_each(x1.begin(), x1.end(), print_fn);
-    printf("\n");
-    return x1;
-    #endif
   }
 
 };
