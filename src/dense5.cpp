@@ -334,23 +334,33 @@ struct Softmax
 {
   typedef array<T, num_inputs> input_vector;
 
+  /*
+   * Softmax forward function
+   */
   static input_vector forward(const input_vector& x)
   {
     input_vector y;
-    T sum = 0;
+
+    /*
+     * compute exp(x_i) / sum(exp(x_i), i=1..N)
+     */
     transform(x.begin(), x.end(), y.begin(),
-              [&sum](const T& yi)
+              [](const T& yi)
               {
                 T out = expf(yi);
-                sum += out;
                 return out;
               });
+
+    T sum = accumulate(y.begin(), y.end(), static_cast<T>(0));
 
     for_each(y.begin(), y.end(), [sum](T &yi){ yi /= sum;});
 
     return y;
   }
 
+  /*
+   * Softmax backward function
+   */
   static input_vector backward(const input_vector& x, const input_vector& grad_inp)
   {
     input_vector grad_out;
@@ -358,14 +368,14 @@ struct Softmax
     vector<input_vector> J;
 
     y = forward(x);
-    int s_ij = 0;
+    int s_i_j = 0;
 
     for (auto y_i: y)
       {
         auto row = y;
         for_each(row.begin(), row.end(), [y_i](T& y_j){ y_j = -y_i * y_j;});
-        row[s_ij] += y_i;
-        s_ij++;
+        row[s_i_j] += y_i;
+        s_i_j++;
         J.push_back(row);
       }
 
