@@ -11,6 +11,8 @@
 #include <functional>
 #include <array>
 #include <iterator>
+#include <cmath>
+
 
 using namespace std;
 using std::chrono::high_resolution_clock;
@@ -20,11 +22,12 @@ using std::chrono::microseconds;
 /*
  * Print helper function
  */
-constexpr auto print_fn = [](const float& x)  -> void {printf("%.1f ", x);};
+constexpr auto print_fn = [](const float& x)  -> void {printf("%.7f ", x);};
 
 /*
  * Constant weight intializer
  */
+const float const_zero = 0.0;
 const float const_one = 1.0;
 const float const_two = 2.0;
 template<float const& value = const_one>
@@ -42,20 +45,21 @@ constexpr auto const_initializer = []() -> float
  *  T: input, output, and weights type in the dense layer
  *  initializer: weights initializer function
  */
-template<size_t num_inputs, size_t num_outputs, typename T = float, T (*weights_initializer)() = const_initializer<const_one>, T (*bias_initializer)() = const_initializer<const_two> >
+template<size_t num_inputs, size_t num_outputs, typename T = float, T (*weights_initializer)() = const_initializer<const_zero>, T (*bias_initializer)() = const_initializer<const_zero> >
 struct Dense
 {
 
   typedef array<T, num_inputs> input_vector;
   typedef array<T, num_outputs> output_vector;
-
+  typedef T (*initializer)();
   vector<input_vector> weights;
   output_vector bias;
+  bool use_bias = true;
 
   /*
-   * Dense layer constructor
+   * Default dense layer constructor
    */
-  Dense()
+  Dense(bool _use_bias)
   {
     /*
      * Create num_outputs x num_inputs weights matrix
@@ -69,11 +73,53 @@ struct Dense
     /*
      * Initialize bias vector
      */
+    use_bias = _use_bias;
     generate(bias.begin(), bias.end(), *bias_initializer);
   }
 
   /*
+   * Dense layer constructor from provided weigths and biases
+   * Note: weights are stored transposed
+   */
+  Dense(const array<array<T, num_inputs>, num_outputs>& weights_init, const array<T, num_outputs>& biases_init)
+  {
+    /*
+     * Create num_outputs x num_inputs weights matrix
+     */
+    for (auto weights_row: weights_init)
+      {
+        weights.push_back(weights_row);
+      }
+
+    /*
+     * Initialize bias vector
+     */
+    bias = biases_init;
+  }
+
+  /*
+   * Dense layer constructor from provided weigths. Bias is not used
+   * Note: weights are stored transposed
+   */
+  Dense(const array<array<T, num_inputs>, num_outputs>& weights_init)
+  {
+    /*
+     * Create num_outputs x num_inputs weights matrix
+     */
+    for (auto weights_row: weights_init)
+      {
+        weights.push_back(weights_row);
+      }
+
+    use_bias = false;
+  }
+
+  /*
    * Dense layer forward pass
+   * Computes X * W + B
+   *  X - input row vector
+   *  W - weights matrix
+   *  B - bias row wector
    */
   output_vector forward(const input_vector& x)
   {
@@ -86,9 +132,13 @@ struct Dense
      * Layer output is dot product of input with weights
      */
     output_vector activation;
-    transform(weights.begin(), weights.end(), bias.begin(), activation.begin(), [x](const input_vector& w, T bias)
+    transform(weights.begin(), weights.end(), bias.begin(), activation.begin(), [x, this](const input_vector& w, T bias)
               {
-                T val = inner_product(x.begin(), x.end(), w.begin(), 0.0) + bias;
+                T val = inner_product(x.begin(), x.end(), w.begin(), 0.0);
+                if (use_bias)
+                  {
+                    val += bias;
+                  }
                 return val;
               }
               );
@@ -99,7 +149,7 @@ struct Dense
   /*
    * Dense layer backward pass
    */
-  input_vector backward(input_vector& input, output_vector grad)
+  input_vector backward(const input_vector& input, const output_vector grad)
   {
     /*
      * Weight update according to SGD algorithm with momentum = 0.0 is:
@@ -148,7 +198,7 @@ struct Dense
 
     /*
      * compute dw
-     * dw = outer(x, de_dy)
+     * dw = outer(x, grad)
      */
     vector<input_vector> dw;
     for (auto grad_i: grad)
@@ -169,15 +219,18 @@ struct Dense
                 return left;
               });
 
-    /*
-     * compute bias = bias - grad
-     * assume learning rate = 1.0
-     */
-    transform(bias.begin(), bias.end(), grad.begin(), bias.begin(),
-              [](const T& bias_i, const T& grad_i)
-              {
-                return bias_i - grad_i;
-              });
+    if (use_bias)
+      {
+        /*
+         * compute bias = bias - grad
+         * assume learning rate = 1.0
+         */
+        transform(bias.begin(), bias.end(), grad.begin(), bias.begin(),
+                  [](const T& bias_i, const T& grad_i)
+                  {
+                    return bias_i - grad_i;
+                  });
+      }
 
     return ret;
   }
@@ -189,7 +242,7 @@ struct Dense
   operator std::string() const
   {
     std::ostringstream ret;
-    ret.precision(1);
+    ret.precision(7);
 
     /*
      * output weights
@@ -206,17 +259,20 @@ struct Dense
         ret << std::endl;
       }
 
-    /*
-     * output biases
-     */
-    ret << "bias:" << std::endl;
-    for (auto b: bias)
+    if (use_bias)
       {
-        if (b >= 0)
-          ret << " ";
-        ret << std::fixed << b << " ";
+        /*
+         * output biases
+         */
+        ret << "bias:" << std::endl;
+        for (auto b: bias)
+          {
+            if (b >= 0)
+              ret << " ";
+            ret << std::fixed << b << " ";
+          }
+        ret << std::endl;
       }
-    ret << std::endl;
 
     return ret.str();
   }
@@ -233,6 +289,121 @@ struct Dense
 };
 
 /*
+ * Sigmoid layer class template
+ */
+template<size_t num_inputs, typename T = float>
+struct Sigmoid
+{
+  typedef array<T, num_inputs> input_vector;
+
+  static input_vector forward(const input_vector& y)
+  {
+    input_vector ret;
+
+    transform(y.begin(), y.end(), ret.begin(),
+              [](const T& yi)
+              {
+                T out = 1.0  / (1.0 + expf(-yi));
+                return out;
+              });
+    return ret;
+  }
+
+  static input_vector backward(const input_vector& y, const input_vector grad)
+  {
+    input_vector ret;
+
+    transform(y.begin(), y.end(), grad.begin(), ret.begin(),
+              [](const T& y_i, const T& grad_i)
+              {
+                T s = 1.0  / (1.0 + expf(-y_i));
+                T out = grad_i * s * (1 - s);
+                return out;
+              });
+    return ret;
+  }
+
+};
+
+
+/*
+ * Softmax layer class template
+ */
+template<size_t num_inputs, typename T = float>
+struct Softmax
+{
+  typedef array<T, num_inputs> input_vector;
+
+  static input_vector forward(const input_vector& x)
+  {
+    input_vector y;
+    T sum = 0;
+    transform(x.begin(), x.end(), y.begin(),
+              [&sum](const T& yi)
+              {
+                T out = expf(yi);
+                sum += out;
+                return out;
+              });
+
+    for_each(y.begin(), y.end(), [sum](T &yi){ yi /= sum;});
+
+    return y;
+  }
+
+  static input_vector backward(const input_vector& x, const input_vector& grad_inp)
+  {
+    input_vector grad_out;
+    input_vector y;
+    vector<input_vector> J;
+
+    y = forward(x);
+    int s_ij = 0;
+
+    for (auto y_i: y)
+      {
+        auto row = y;
+        for_each(row.begin(), row.end(), [y_i](T& y_j){ y_j = -y_i * y_j;});
+        row[s_ij] += y_i;
+        s_ij++;
+        J.push_back(row);
+      }
+
+    transform(J.begin(), J.end(), grad_out.begin(),
+              [grad_inp](const input_vector& j)
+              {
+                T val = inner_product(j.begin(), j.end(), grad_inp.begin(), 0.0);
+                return val;
+              }
+              );
+
+    return grad_out;
+
+    #if 0
+    transform(y.begin(), y.end(), x.begin(),
+              [&sum](const T& y_i)
+              {
+                T e_i = expf(y_i);
+                return e_i * (sum - e_i) / (sum * sum);
+              });
+
+
+    transform(x.begin(), x.end(), grad.begin(), x1.begin(),
+              [&sum](const T& x_i, const T& grad_i)
+              {
+                return x_i * grad_i;
+              });
+    printf("softmax bw output:\n");
+    for_each(x1.begin(), x1.end(), print_fn);
+    printf("\n");
+    return x1;
+    #endif
+  }
+
+};
+
+
+/*
  * Mean Squared Error loss class
  * Parameters:
  *  num_inputs: number of inputs to MSE function.
@@ -247,10 +418,10 @@ struct MSE
   /*
    * Forward pass computes MSE loss for inputs yhat (label) and y (predicted)
    */
-  static T forward(input_vector yhat, input_vector y)
+  static T forward(const input_vector& yhat, const input_vector& y)
   {
     T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
-                              [](T& left, T& right)
+                              [](const T& left, const T& right)
                               {
                                 return (left - right) * (left - right);
                               }
@@ -274,7 +445,7 @@ struct MSE
     array<T, num_inputs> de_dy;
 
     transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
-              [](T& left, T& right)
+              [](const T& left, const T& right)
               {
                 return 2 * (right - left) / num_inputs;
               }
@@ -291,26 +462,32 @@ int main(void)
   const int num_outputs = 2;
   const int num_iterations = 1000;
 
-  array<float, num_inputs> x = {2.0, 0.5};
-  array<float, num_outputs> yhat = {2.0, 1.0};
+  array<float, num_inputs> x = {-1.0, 0.0};
+  array<float, num_outputs> yhat = {1.0, 0.0};
+  array<float, num_outputs> biases_init = {1.0, 2.0};
+  array<array<float, num_outputs>, num_outputs> weights_init = {{{1.0, 3.0},{2.0, 2.0}}};
 
   /*
-   * Create dense layer and MSE loss
+   * Create dense layers and MSE loss
    */
-  Dense<num_inputs, num_outputs> dense1;
-  Dense<num_inputs, num_outputs> dense2;
+  Dense<num_inputs, num_outputs, float, const_initializer<const_one>, const_initializer<const_two> > dense1(true);
+  Sigmoid<num_outputs> sigmoid;
+  Dense<num_outputs, num_outputs, float, const_initializer<const_one> > dense2(weights_init, biases_init);
+  Softmax<num_outputs> softmax;
   MSE<num_outputs> mse_loss;
 
   /*
    * Compute Dense layer output y for input x
    */
   auto y1 = dense1.forward(x);
-  auto y2 = dense2.forward(y1);
+  auto y2 = sigmoid.forward(y1);
+  auto y3 = dense2.forward(y2);
+  auto y4 = softmax.forward(y3);
 
   /*
-   * Copute MSE loss for output y and label yhat
+   * Copute MSE loss for output y and labe yhat
    */
-  auto loss = mse_loss.forward(yhat, y2);
+  auto loss = mse_loss.forward(yhat, y4);
 
   /*
    * Benchmark Dense layer inference latency
@@ -318,8 +495,7 @@ int main(void)
   auto ts = high_resolution_clock::now();
   for (auto iter = 0;  iter < num_iterations; iter++)
     {
-      y1 = dense1.forward(x);
-      y2  = dense2.forward(y1);
+      //y1 = dense1.forward(x);
     }
   auto te = high_resolution_clock::now();
   auto dt_us = (float)duration_cast<microseconds>(te - ts).count() / num_iterations;
@@ -332,10 +508,14 @@ int main(void)
   printf("\n");
 
   /*
-   * Print DNN output y
+   * Print DNN output y and expected output yhat
    */
   printf("output y=");
-  for_each(y2.begin(), y2.end(), print_fn);
+  for_each(y4.begin(), y4.end(), print_fn);
+  printf("\n");
+
+  printf("expected output yhat=");
+  for_each(yhat.begin(), yhat.end(), print_fn);
   printf("\n");
 
   /*
@@ -344,21 +524,23 @@ int main(void)
   printf("loss: %f\n", loss);
 
   /*
-   * Compute dloss/dy gradients
-   */
-  auto dloss_dy = mse_loss.backward(yhat, y2);
-
-  /*
    * Back propagate loss
    */
-  auto bw2 = dense2.backward(y1, dloss_dy);
-  auto bw1 = dense1.backward(x, bw2);
+  auto dloss_dy4 = mse_loss.backward(yhat, y4);
+  auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
+  auto dy3_dy2 = dense2.backward(y2, dy4_dy3);
+  auto dy2_dy1 = sigmoid.backward(y1, dy3_dy2);
+  auto dy1_dx = dense1.backward(x, dy2_dy1);
+
+  printf("input x=");
+  for_each(x.begin(), x.end(), print_fn);
+  printf("\n");
 
   /*
    * print dloss/dy
    */
-  printf("d(loss)/dy: ");
-  for_each(dloss_dy.begin(), dloss_dy.end(), print_fn);
+  printf("dloss/dy: ");
+  for_each(dloss_dy4.begin(), dloss_dy4.end(), print_fn);
   printf("\n");
 
   /*

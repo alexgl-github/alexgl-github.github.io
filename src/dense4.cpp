@@ -127,6 +127,28 @@ struct Dense
      *  second update weights by subtracting dw
      */
 
+
+    /*
+     * Compute backpropagated gradient
+     */
+    vector<output_vector> weights_transposed;
+    weights_transposed.resize(num_inputs);
+    for (int i = 0; i < num_inputs; i++)
+      {
+        for (int j = 0; j < num_outputs; j++)
+          {
+            weights_transposed[i][j] = weights[j][i];
+          }
+      }
+
+    input_vector ret;
+    transform(weights_transposed.begin(), weights_transposed.end(), ret.begin(),
+              [grad](input_vector& w)
+              {
+                T val = inner_product(w.begin(), w.end(), grad.begin(), 0.0);
+                return val;
+              });
+
     /*
      * compute dw
      * dw = outer(x, grad)
@@ -138,17 +160,6 @@ struct Dense
         for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
         dw.push_back(row);
       }
-
-    /*
-     * Compute backpropagated gradient
-     */
-    input_vector ret;
-    transform(weights.begin(), weights.end(), ret.begin(),
-              [grad](input_vector& w)
-              {
-                T val = inner_product(w.begin(), w.end(), grad.begin(), 0.0);
-                return val;
-              });
 
     /*
      * compute w = w - dw
