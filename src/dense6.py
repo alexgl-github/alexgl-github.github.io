@@ -4,13 +4,13 @@ from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras import backend as K
 import numpy as np
 
-num_inputs = 2
+num_inputs = 3
 num_outputs = 2
 
 # Create sequential model
 model = tf.keras.Sequential()
 
-layer1 = Dense(units=num_inputs, use_bias=True, activation="sigmoid", weights=[np.ones([num_inputs, num_inputs]), np.full([num_inputs], 2.0)])
+layer1 = Dense(units=num_outputs, use_bias=True, activation="sigmoid", weights=[np.ones([num_inputs, num_outputs]), np.full([num_outputs], 2.0)])
 layer2 = Dense(units=num_outputs, use_bias=True, activation=None, weights=[np.array([[1.0, 2.0], [3.0, 2.0]]), np.array([1.0, 2.0])])
 layer3 = Softmax(axis=-1)
 model.add(layer1)
@@ -21,7 +21,7 @@ model.add(layer3)
 loss_fn = tf.keras.losses.CategoricalCrossentropy()
 
 # Arbitrary model input
-x = np.array([-1.0, 1.0])
+x = np.array([-1.0, 1.0, 2.0])
 
 # Expected output
 y_true = np.array([[1.0, 0.0]])

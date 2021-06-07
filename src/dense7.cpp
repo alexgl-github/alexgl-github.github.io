@@ -12,6 +12,7 @@
 #include <array>
 #include <iterator>
 #include <cmath>
+#include "mnist.h"
 
 using namespace std;
 using std::chrono::high_resolution_clock;
@@ -26,9 +27,9 @@ constexpr auto print_fn = [](const float& x)  -> void {printf("%.7f ", x);};
 /*
  * Constant weight intializer
  */
-const float const_zero = 0.0;
+const float const_onehalf = 0.0;
 const float const_one = 1.0;
-const float const_two = 2.0;
+const float const_zero = 0.0;
 template<float const& value = const_one>
 constexpr auto const_initializer = []() -> float
 {
@@ -58,7 +59,7 @@ struct Dense
   /*
    * Default dense layer constructor
    */
-  Dense(bool _use_bias)
+  Dense(bool _use_bias=true)
   {
     /*
      * Create num_outputs x num_inputs weights matrix
@@ -133,7 +134,7 @@ struct Dense
     output_vector activation;
     transform(weights.begin(), weights.end(), bias.begin(), activation.begin(), [x, this](const input_vector& w, T bias)
               {
-                T val = inner_product(x.begin(), x.end(), w.begin(), 0.0);
+                T val = inner_product(w.begin(), w.end(), x.begin(), 0.0);
                 if (use_bias)
                   {
                     val += bias;
@@ -148,7 +149,7 @@ struct Dense
   /*
    * Dense layer backward pass
    */
-  input_vector backward(const input_vector& input, const output_vector grad)
+  input_vector backward(const input_vector& input, const output_vector grad, float learning_rate = 1.0)
   {
     /*
      * Weight update according to SGD algorithm with momentum = 0.0 is:
@@ -203,13 +204,12 @@ struct Dense
     for (auto grad_i: grad)
       {
         auto row = input;
-        for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
+        for_each(row.begin(), row.end(), [grad_i, learning_rate](T &xi){ xi *= grad_i * learning_rate;});
         dw.push_back(row);
       }
 
     /*
-     * compute w = w - dw
-     * assume learning rate = 1.0
+     * compute w = w - learning_rate * dw
      */
     transform(weights.begin(), weights.end(), dw.begin(), weights.begin(),
               [](input_vector& left, input_vector& right)
@@ -505,97 +505,70 @@ struct CCE
 
 int main(void)
 {
-  const int num_inputs = 3;
-  const int num_outputs = 2;
-  const int num_iterations = 1000;
+  const char* images_path = "./data/train-images-idx3-ubyte";
+  const char* labels_path = "./data/train-labels-idx1-ubyte";
+  const int num_classes = 10;
+  const int num_rows = 28;
+  const int num_cols = 28;
+  const int image_size = num_rows * num_cols;
+  std::array<float, image_size> image;
+  std::array<float, num_classes> yhat;
+  const int num_epochs = 100;
+  float learning_rate = 0.1;
 
-  array<float, num_inputs> x = {-1.0, 1.0, 2.0};
-  array<float, num_outputs> yhat = {1.0, 0.0};
-  array<float, num_outputs> biases_init = {1.0, 2.0};
-  array<array<float, num_outputs>, num_outputs> weights_init = {{{1.0, 3.0},{2.0, 2.0}}};
+  mnist dataset(images_path, labels_path);
 
   /*
    * Create DNN layers and the loss
    */
-  Dense<num_inputs, num_outputs, float, const_initializer<const_one>, const_initializer<const_two> > dense1(true);
-  Sigmoid<num_outputs> sigmoid;
-  Dense<num_outputs, num_outputs, float, const_initializer<const_one> > dense2(weights_init, biases_init);
-  Softmax<num_outputs> softmax;
-  CCE<num_outputs> loss_fn;
+  Dense<image_size, 128, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense1;
+  Sigmoid<128> sigmoid;
+  Dense<128, num_classes, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense2;
+  Softmax<num_classes> softmax;
+  CCE<num_classes> loss_fn;
 
-  /*
-   * Compute Dense layer output y for input x
-   */
-  auto y1 = dense1.forward(x);
-  auto y2 = sigmoid.forward(y1);
-  auto y3 = dense2.forward(y2);
-  auto y4 = softmax.forward(y3);
-
-  /*
-   * Copute loss for output y and labe yhat
-   */
-  auto loss = loss_fn.forward(yhat, y4);
-
-  /*
-   * Benchmark Dense layer inference latency
-   */
-  auto ts = high_resolution_clock::now();
-  for (auto iter = 0;  iter < num_iterations; iter++)
+  for (auto epoch=0; epoch < num_epochs; epoch++)
     {
-      y1 = dense1.forward(x);
-      y2 = sigmoid.forward(y1);
-      y3 = dense2.forward(y2);
-      y4 = softmax.forward(y3);
+      dataset.rewind();
+      float loss_epoch = 0;
+
+      for (auto iter = 0; iter < 2000 /*dataset.number_of_images*/; iter++)
+        {
+
+          if (dataset.read_next_image(image) < 0 ||
+              dataset.read_next_label(yhat) < 0 )
+            {
+              return 0;
+            }
+
+          /*
+           * Compute Dense layer output y for input x
+           */
+          auto y1 = dense1.forward(image);
+          auto y2 = sigmoid.forward(y1);
+          auto y3 = dense2.forward(y2);
+          auto y4 = softmax.forward(y3);
+          auto loss = loss_fn.forward(yhat, y4);
+
+          /*
+           * Back propagate loss
+           */
+          auto dloss_dy4 = loss_fn.backward(yhat, y4);
+          auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
+          auto dy3_dy2 = dense2.backward(y2, dy4_dy3, learning_rate);
+          auto dy2_dy1 = sigmoid.backward(y1, dy3_dy2);
+          auto dy1_dx = dense1.backward(image, dy2_dy1, learning_rate);
+
+          if ((iter % 1000) == 0)
+            {
+              //printf("epoch=%d iter=%d loss: %f\n", epoch, iter, loss);
+            }
+          loss_epoch += loss;
+        }
+
+      printf("%d/%d avg loss: %f\n", epoch, num_epochs, loss_epoch / 2000.0);
+
     }
-  auto te = high_resolution_clock::now();
-  auto dt_us = (float)duration_cast<microseconds>(te - ts).count() / num_iterations;
-
-  /*
-   * Print DNN input x
-   */
-  printf("input x=");
-  for_each(x.begin(), x.end(), print_fn);
-  printf("\n");
-
-  /*
-   * Print DNN output y and expected output yhat
-   */
-  printf("output y=");
-  for_each(y4.begin(), y4.end(), print_fn);
-  printf("\n");
-
-  printf("expected output yhat=");
-  for_each(yhat.begin(), yhat.end(), print_fn);
-  printf("\n");
-
-  /*
-   * Print loss for output y and label yhat
-   */
-  printf("loss: %f\n", loss);
-
-  /*
-   * Back propagate loss
-   */
-  auto dloss_dy4 = loss_fn.backward(yhat, y4);
-  auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
-  auto dy3_dy2 = dense2.backward(y2, dy4_dy3);
-  auto dy2_dy1 = sigmoid.backward(y1, dy3_dy2);
-  auto dy1_dx = dense1.backward(x, dy2_dy1);
-
-  printf("dy2=");
-  for_each(dy2_dy1.begin(), dy2_dy1.end(), print_fn);
-  printf("\n");
-
-  /*
-   * Print updated Dense layer weights
-   */
-  printf("updated dense 1 layer weights:\n%s", ((string)dense1).c_str());
-  printf("updated dense 2 layer weights:\n%s", ((string)dense2).c_str());
-
-  /*
-   * Print average latency
-   */
-  printf("time dt=%f usec\n", dt_us);
 
   return 0;
 }
