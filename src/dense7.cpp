@@ -20,6 +20,7 @@ using std::chrono::duration_cast;
 using std::chrono::microseconds;
 using std::chrono::milliseconds;
 using std::chrono::seconds;
+using mnist_error = mnist<10, 28*28, float>::error;
 
 /*
  * Print helper function
@@ -57,6 +58,7 @@ struct Dense
   vector<input_vector> weights;
   output_vector bias;
   bool use_bias = true;
+  vector<array<T*, num_outputs>> weights_transposed;
 
   /*
    * Default dense layer constructor
@@ -71,6 +73,19 @@ struct Dense
       {
         generate(w.begin(), w.end(), *weights_initializer);
       }
+
+    /*
+     * Ctreate transposed array of weighst pointers
+     */
+    weights_transposed.resize(num_inputs);
+    for (int i = 0; i < num_inputs; i++)
+      {
+        for (int j = 0; j < num_outputs; j++)
+          {
+            weights_transposed[i][j] = &weights[j][i];
+          }
+      }
+
 
     /*
      * Initialize bias vector
@@ -180,21 +195,20 @@ struct Dense
     /*
      * Compute backpropagated gradient
      */
-    vector<output_vector> weights_transposed;
-    weights_transposed.resize(num_inputs);
-    for (int i = 0; i < num_inputs; i++)
-      {
-        for (int j = 0; j < num_outputs; j++)
-          {
-            weights_transposed[i][j] = weights[j][i];
-          }
-      }
-
     input_vector ret;
     transform(weights_transposed.begin(), weights_transposed.end(), ret.begin(),
-              [grad](output_vector& w)
+              [grad](array<T*, num_outputs>& w)
               {
-                T val = inner_product(w.begin(), w.end(), grad.begin(), 0.0);
+                T val = inner_product(w.begin(), w.end(), grad.begin(), 0.0,
+                                      [](const T& l, const T& r)
+                                      {
+                                        return l + r;
+                                      },
+                                      [](const T* l, const T& r)
+                                      {
+                                        return *l * r;
+                                      }
+                                      );
                 return val;
               });
 
@@ -206,7 +220,7 @@ struct Dense
     for (auto grad_i: grad)
       {
         auto row = input;
-        for_each(row.begin(), row.end(), [grad_i, learning_rate](T &xi){ xi *= grad_i * learning_rate;});
+        for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
         dw.push_back(row);
       }
 
@@ -214,9 +228,13 @@ struct Dense
      * compute w = w - learning_rate * dw
      */
     transform(weights.begin(), weights.end(), dw.begin(), weights.begin(),
-              [](input_vector& left, input_vector& right)
+              [learning_rate](input_vector& left, input_vector& right)
               {
-                transform(left.begin(), left.end(), right.begin(), left.begin(), minus<T>());
+                transform(left.begin(), left.end(), right.begin(), left.begin(),
+                          [learning_rate](const T& w_i, const T& dw_i)
+                          {
+                            return w_i - learning_rate * dw_i;
+                          });
                 return left;
               });
 
@@ -474,11 +492,12 @@ int main(void)
   const int num_cols = 28;
   const int image_size = num_rows * num_cols;
   std::array<float, image_size> image;
-  std::array<float, num_classes> yhat;
+  std::array<float, num_classes> label;
   const int num_epochs = 3000;
   float learning_rate = 0.01;
 
   mnist dataset(images_path, labels_path);
+  printf("found %d images and %d labels\n", dataset.number_of_images, dataset.number_of_labels);
 
   /*
    * Create DNN layers and the loss
@@ -493,9 +512,6 @@ int main(void)
   for (auto epoch=0; epoch < num_epochs; epoch++)
     {
       dataset.rewind();
-      dataset.read_next_label(yhat);
-      dataset.read_next_label(yhat);
-      dataset.read_next_label(yhat);
       float loss_epoch = 0;
 
       auto ts = high_resolution_clock::now();
@@ -503,12 +519,13 @@ int main(void)
       for (auto iter = 0; iter < iterations; iter++)
         {
 
-          if (dataset.read_next_image(image) < 0 ||
-              dataset.read_next_label(yhat) < 0 )
+          auto ret1 = dataset.read_next(image, label);
+          if (ret1 == mnist_error::MNIST_EOF)
             {
-              return 0;
+              printf("eof 1\n");
+              dataset.offsets();
+              break;
             }
-
           /*
            * Compute Dense layer output y for input x
            */
@@ -516,12 +533,12 @@ int main(void)
           auto y2 = sigmoid1.forward(y1);
           auto y3 = dense2.forward(y2);
           auto y4 = softmax.forward(y3);
-          auto loss = loss_fn.forward(yhat, y4);
+          auto loss = loss_fn.forward(label, y4);
 
           /*
            * Back propagate loss
            */
-          auto dloss_dy4 = loss_fn.backward(yhat, y4);
+          auto dloss_dy4 = loss_fn.backward(label, y4);
           auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
           auto dy3_dy2 = dense2.backward(y2, dy4_dy3, learning_rate);
           auto dy2_dy1 = sigmoid1.backward(y1, dy3_dy2);
@@ -541,7 +558,7 @@ int main(void)
       auto dt_s = (float)duration_cast<seconds>(te - ts).count();
 
       loss_epoch = loss_epoch / iterations;
-      printf("%d/%d time/epoch=%.5f sec time left=%.4f sec avg loss: %f\n", epoch, num_epochs, dt_s / iterations, dt_s * (num_epochs - epoch), loss_epoch);
+      printf("%d/%d time/epoch=%.5f sec time left=%.4f hr avg loss: %f\n", epoch, num_epochs, dt_s / iterations / (60 * 60), dt_s * (num_epochs - epoch), loss_epoch);
 
     }
 

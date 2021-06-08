@@ -46,6 +46,13 @@
 template<size_t num_classes=10, size_t image_size=28*28, typename T=float>
 struct mnist
 {
+  enum error
+    {
+      MNIST_OK = 0,
+      MNIST_EOF = -1,
+      MNIST_ERROR = -2
+    };
+
   /* images file descriptor */
   int fd_images = -1;
   /* labels file descriptor */
@@ -120,10 +127,14 @@ struct mnist
      * Read uint_8 pixel values
      */
     std::array<uint8_t, image_size> raw_data;
-    if (image_size != read(fd_images, raw_data.data(), image_size))
+    ssize_t ret = read(fd_images, raw_data.data(), image_size);
+    if (ret == 0)
       {
-        return -1;
+        printf("read_next_image EOF\n");
+        return MNIST_EOF;
       }
+
+    assert(ret == image_size);
 
     /*
      * convert to floating point and normalize
@@ -133,7 +144,7 @@ struct mnist
                 return static_cast<T>(x) / 256.0;
               }
               );
-    return image_size;
+    return MNIST_OK;
   }
 
   /*
@@ -149,21 +160,39 @@ struct mnist
     std::fill(label.begin(), label.end(), 0);
 
     /*
-     * Read label
+     * Read label value
      */
-    if (sizeof(label_index) != read(fd_labels, &label_index, sizeof(label_index)) ||
-        (label_index >= num_classes)
-        )
+    ssize_t ret = read(fd_labels, &label_index, sizeof(label_index));
+
+    if (ret == 0)
       {
-        printf("error reading label, label_index=%X\n", label_index);
-        return -1;
+        return MNIST_EOF;
       }
+
+    assert(ret == sizeof(label_index));
+    assert(label_index < num_classes);
+
     /*
-     * Set one hot array at label index to 1
+     * Set one hot array at label value index to 1
      */
     label[label_index] = 1.0;
+    return MNIST_OK;
+  }
 
-    return 1;
+  /*
+   *
+   */
+  int read_next(std::array<T, image_size>& image, std::array<T, num_classes>& label)
+  {
+    auto ret1 = read_next_image(image);
+    auto ret2 = read_next_label(label);
+    if (ret1 == MNIST_EOF || ret2 == MNIST_EOF)
+      {
+        return MNIST_EOF;
+      }
+    assert(ret1 == MNIST_OK);
+    assert(ret2 == MNIST_OK);
+    return MNIST_OK;
   }
 
   /*
@@ -172,19 +201,24 @@ struct mnist
    */
   void rewind()
   {
-    printf("rewind\n");
     if (fd_images != -1 && fd_labels != -1)
       {
         /*
-         * seek to data offsets in labels and images
+         * seek to data offsets in labels and images. For offsets see start of mnist.h
          */
         lseek(fd_images, 16, SEEK_SET);
         lseek(fd_labels, 8, SEEK_SET);
       }
   }
 
+  void offsets()
+  {
+    off_t off1 = lseek(fd_images, 0, SEEK_CUR);
+    off_t off2 = lseek(fd_labels, 0, SEEK_CUR);
+    printf("offsets off1=%ld off2=%ld\n", off1, off2);
+  }
   /*
-   * Utility to swap bytes in big endian values
+   * Utility to convert betwwen big/little endiannes
    */
   template<typename S = uint32_t>
   static S endian_swap(T val)
