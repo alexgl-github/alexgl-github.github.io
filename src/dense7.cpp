@@ -18,6 +18,8 @@ using namespace std;
 using std::chrono::high_resolution_clock;
 using std::chrono::duration_cast;
 using std::chrono::microseconds;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
 
 /*
  * Print helper function
@@ -399,57 +401,6 @@ struct Softmax
 };
 
 
-/*
- * Mean Squared Error loss class
- * Parameters:
- *  num_inputs: number of inputs to MSE function.
- *  T: input type, float by defaut.
- */
-template<size_t num_inputs, typename T = float>
-struct MSE
-{
-
-  typedef array<T, num_inputs> input_vector;
-
-  /*
-   * Forward pass computes MSE loss for inputs yhat (label) and y (predicted)
-   */
-  static T forward(const input_vector& yhat, const input_vector& y)
-  {
-    T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
-                              [](const T& left, const T& right)
-                              {
-                                return (left - right) * (left - right);
-                              }
-                              );
-    return loss / num_inputs;
-  }
-
-  /*
-   * Backward pass computes dloss/dy for inputs yhat (label) and y (predicted)
-   *
-   * loss = sum((yhat[i] - y[i])^2) / N
-   *   i=0...N-1
-   *   where N is number of inputs
-   *
-   * d_loss/dy[i] = 2 * (yhat[i] - y[i]) * (-1) / N
-   * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
-   *
-   */
-  static input_vector backward(input_vector yhat, input_vector y)
-  {
-    array<T, num_inputs> de_dy;
-
-    transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
-              [](const T& left, const T& right)
-              {
-                return 2 * (right - left) / num_inputs;
-              }
-              );
-    return de_dy;
-  }
-
-};
 
 /*
  * Categorical Crossentropy loss
@@ -472,12 +423,23 @@ struct CCE
    */
   static T forward(const input_vector& yhat, const input_vector& y)
   {
+#if 0
     T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
                               [](const T& yhat_i, const T& y_i)
                               {
                                 return yhat_i * logf(y_i);
                               }
                               );
+#else
+    input_vector cce;
+    transform(yhat.begin(), yhat.end(), y.begin(), cce.begin(),
+              [](const T& yhat_i, const T& y_i)
+              {
+                return yhat_i * logf(y_i);
+              }
+              );
+    T loss = accumulate(cce.begin(), cce.end(), 0.0);
+#endif
     return -1 * loss;
   }
 
@@ -513,26 +475,32 @@ int main(void)
   const int image_size = num_rows * num_cols;
   std::array<float, image_size> image;
   std::array<float, num_classes> yhat;
-  const int num_epochs = 100;
-  float learning_rate = 0.1;
+  const int num_epochs = 3000;
+  float learning_rate = 0.01;
 
   mnist dataset(images_path, labels_path);
 
   /*
    * Create DNN layers and the loss
    */
-  Dense<image_size, 128, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense1;
-  Sigmoid<128> sigmoid;
-  Dense<128, num_classes, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense2;
+  Dense<image_size, 256, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense1;
+  Sigmoid<256> sigmoid1;
+  Dense<256, num_classes, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense2;
   Softmax<num_classes> softmax;
   CCE<num_classes> loss_fn;
+  auto iterations = dataset.number_of_images;
 
   for (auto epoch=0; epoch < num_epochs; epoch++)
     {
       dataset.rewind();
+      dataset.read_next_label(yhat);
+      dataset.read_next_label(yhat);
+      dataset.read_next_label(yhat);
       float loss_epoch = 0;
 
-      for (auto iter = 0; iter < 2000 /*dataset.number_of_images*/; iter++)
+      auto ts = high_resolution_clock::now();
+
+      for (auto iter = 0; iter < iterations; iter++)
         {
 
           if (dataset.read_next_image(image) < 0 ||
@@ -545,7 +513,7 @@ int main(void)
            * Compute Dense layer output y for input x
            */
           auto y1 = dense1.forward(image);
-          auto y2 = sigmoid.forward(y1);
+          auto y2 = sigmoid1.forward(y1);
           auto y3 = dense2.forward(y2);
           auto y4 = softmax.forward(y3);
           auto loss = loss_fn.forward(yhat, y4);
@@ -556,17 +524,24 @@ int main(void)
           auto dloss_dy4 = loss_fn.backward(yhat, y4);
           auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
           auto dy3_dy2 = dense2.backward(y2, dy4_dy3, learning_rate);
-          auto dy2_dy1 = sigmoid.backward(y1, dy3_dy2);
+          auto dy2_dy1 = sigmoid1.backward(y1, dy3_dy2);
           auto dy1_dx = dense1.backward(image, dy2_dy1, learning_rate);
 
-          if ((iter % 1000) == 0)
-            {
-              //printf("epoch=%d iter=%d loss: %f\n", epoch, iter, loss);
-            }
           loss_epoch += loss;
+          auto te = high_resolution_clock::now();
+          auto dt_s = (float)duration_cast<seconds>(te - ts).count() / (iter + 1);
+
+          if ((iter % 5000) == 0)
+            {
+              printf("epoch=%d/%d iter=%d/%d time/iter=%.3f sec loss: %f\n", epoch, num_epochs, iter, iterations, dt_s, loss_epoch / (iter + 1));
+            }
         }
 
-      printf("%d/%d avg loss: %f\n", epoch, num_epochs, loss_epoch / 2000.0);
+      auto te = high_resolution_clock::now();
+      auto dt_s = (float)duration_cast<seconds>(te - ts).count();
+
+      loss_epoch = loss_epoch / iterations;
+      printf("%d/%d time/epoch=%.5f sec time left=%.4f sec avg loss: %f\n", epoch, num_epochs, dt_s / iterations, dt_s * (num_epochs - epoch), loss_epoch);
 
     }
 
