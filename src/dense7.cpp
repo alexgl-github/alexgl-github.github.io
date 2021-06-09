@@ -86,7 +86,6 @@ struct Dense
           }
       }
 
-
     /*
      * Initialize bias vector
      */
@@ -255,6 +254,100 @@ struct Dense
   }
 
   /*
+   * Dense layer backward pass
+   */
+  input_vector backprop(const output_vector& grad)
+  {
+    /*
+     * Weight update according to SGD algorithm with momentum = 0.0 is:
+     *  w = w - learning_rate * d_loss/dw
+     *
+     * For simplicity assume learning_rate = 1.0
+     *
+     * d_loss/dw = dloss/dy * dy/dw
+     * d_loss/dbias = dloss/dy * dy/dbias
+     *
+     * dloss/dy is input gradient grad
+     *
+     * dy/dw is :
+     *  y = w[0]*x[0] + w[1] * x[1] +... + w[n] * x[n] + bias
+     *  dy/dw[i] = x[i]
+     *
+     * dy/dbias is :
+     *  dy/dbias = 1
+     *
+     * For clarity we:
+     *  assume learning_rate = 1.0
+     *  first compute dw
+     *  second update weights by subtracting dw
+     */
+
+    /*
+     * Compute backpropagated gradient
+     */
+    input_vector grad_out;
+    transform(weights_transposed.begin(), weights_transposed.end(), grad_out.begin(),
+              [grad](array<T*, num_outputs>& w)
+              {
+                T val = inner_product(w.begin(), w.end(), grad.begin(), 0.0,
+                                      [](const T& l, const T& r)
+                                      {
+                                        return l + r;
+                                      },
+                                      [](const T* l, const T& r)
+                                      {
+                                        return *l * r;
+                                      }
+                                      );
+                return val;
+              });
+    return grad_out;
+  }
+
+  void train(const input_vector& input, const output_vector& grad, float learning_rate = 1.0)
+  {
+    /*
+     * compute dw
+     * dw = outer(grad, x)
+     */
+    vector<input_vector> dw;
+    for (auto grad_i: grad)
+      {
+        auto row = input;
+        for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
+        dw.push_back(row);
+      }
+
+    /*
+     * compute w = w - learning_rate * dw
+     */
+    transform(weights.begin(), weights.end(), dw.begin(), weights.begin(),
+              [learning_rate](input_vector& left, input_vector& right)
+              {
+                transform(left.begin(), left.end(), right.begin(), left.begin(),
+                          [learning_rate](const T& w_i, const T& dw_i)
+                          {
+                            return w_i - learning_rate * dw_i;
+                          });
+                return left;
+              });
+
+    if (use_bias)
+      {
+        /*
+         * compute bias = bias - grad
+         * assume learning rate = 1.0
+         */
+        transform(bias.begin(), bias.end(), grad.begin(), bias.begin(),
+                  [](const T& bias_i, const T& grad_i)
+                  {
+                    return bias_i - grad_i;
+                  });
+      }
+
+  }
+
+  /*
    * Helper function to convert Dense layer to string
    * Used for printing the layer weights and biases
    */
@@ -335,8 +428,7 @@ struct Sigmoid
     transform(y.begin(), y.end(), grad.begin(), ret.begin(),
               [](const T& y_i, const T& grad_i)
               {
-                T s = 1.0  / (1.0 + expf(-y_i));
-                T out = grad_i * s * (1 - s);
+                T out = grad_i * y_i * (1 - y_i);
                 return out;
               });
     return ret;
@@ -380,18 +472,15 @@ struct Softmax
   /*
    * Softmax backward function
    */
-  static input_vector backward(const input_vector& x, const input_vector& grad_inp)
+  static input_vector backward(const input_vector& y, const input_vector& grad_inp)
   {
     input_vector grad_out;
-    input_vector y;
     vector<input_vector> J;
-
-    y = forward(x);
-    int s_i_j = 0;
 
     /*
      * Compute Jacobian of Softmax
      */
+    int s_i_j = 0;
     for (auto y_i: y)
       {
         auto row = y;
@@ -441,7 +530,7 @@ struct CCE
    */
   static T forward(const input_vector& yhat, const input_vector& y)
   {
-#if 0
+#if 1
     T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
                               [](const T& yhat_i, const T& y_i)
                               {
@@ -513,19 +602,18 @@ int main(void)
     {
       dataset.rewind();
       float loss_epoch = 0;
+      float loss;
 
       auto ts = high_resolution_clock::now();
 
       for (auto iter = 0; iter < iterations; iter++)
         {
-
           auto ret1 = dataset.read_next(image, label);
           if (ret1 == mnist_error::MNIST_EOF)
             {
-              printf("eof 1\n");
-              dataset.offsets();
               break;
             }
+
           /*
            * Compute Dense layer output y for input x
            */
@@ -539,12 +627,12 @@ int main(void)
            * Back propagate loss
            */
           auto dloss_dy4 = loss_fn.backward(label, y4);
-          auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
+          auto dy4_dy3 = softmax.backward(y4, dloss_dy4);
           auto dy3_dy2 = dense2.backward(y2, dy4_dy3, learning_rate);
-          auto dy2_dy1 = sigmoid1.backward(y1, dy3_dy2);
+          auto dy2_dy1 = sigmoid1.backward(y2, dy3_dy2);
           auto dy1_dx = dense1.backward(image, dy2_dy1, learning_rate);
-
           loss_epoch += loss;
+
           auto te = high_resolution_clock::now();
           auto dt_s = (float)duration_cast<seconds>(te - ts).count() / (iter + 1);
 
@@ -558,7 +646,7 @@ int main(void)
       auto dt_s = (float)duration_cast<seconds>(te - ts).count();
 
       loss_epoch = loss_epoch / iterations;
-      printf("%d/%d time/epoch=%.5f sec time left=%.4f hr avg loss: %f\n", epoch, num_epochs, dt_s / iterations / (60 * 60), dt_s * (num_epochs - epoch), loss_epoch);
+      printf("epoch %d/%d time/epoch=%.5f sec time left=%.4f hr avg loss: %f\n", epoch, num_epochs, dt_s / iterations / (60 * 60), dt_s * (num_epochs - epoch), loss_epoch);
 
     }
 

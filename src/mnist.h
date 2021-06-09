@@ -180,7 +180,7 @@ struct mnist
   }
 
   /*
-   *
+   * Wrapper for read_next_image() and read_next_label()
    */
   int read_next(std::array<T, image_size>& image, std::array<T, num_classes>& label)
   {
@@ -211,12 +211,6 @@ struct mnist
       }
   }
 
-  void offsets()
-  {
-    off_t off1 = lseek(fd_images, 0, SEEK_CUR);
-    off_t off2 = lseek(fd_labels, 0, SEEK_CUR);
-    printf("offsets off1=%ld off2=%ld\n", off1, off2);
-  }
   /*
    * Utility to convert betwwen big/little endiannes
    */
