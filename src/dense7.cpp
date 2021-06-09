@@ -14,6 +14,7 @@
 #include <cmath>
 #include "mnist.h"
 
+
 using namespace std;
 using std::chrono::high_resolution_clock;
 using std::chrono::duration_cast;
@@ -78,6 +79,8 @@ struct Dense
    * Matrix of transposed weights W pointers, used to speed up backward() path
    */
   vector<array<T*, num_outputs>> weights_transposed;
+  vector<input_vector> dw;
+  output_vector db;
 
   /*
    * Default dense layer constructor
@@ -110,6 +113,12 @@ struct Dense
      */
     use_bias = _use_bias;
     generate(bias.begin(), bias.end(), *bias_initializer);
+
+    /*
+     * Initialize dw, db
+     */
+    dw.resize(num_outputs);
+    reset_grads();
   }
 
   /*
@@ -184,7 +193,7 @@ struct Dense
   /*
    * Dense layer backward pass
    */
-  input_vector backward(const input_vector& input, const output_vector grad, float learning_rate = 1.0)
+  input_vector backward(const input_vector& input, const output_vector grad)
   {
     /*
      * Weight update according to SGD algorithm with momentum = 0.0 is:
@@ -213,8 +222,8 @@ struct Dense
     /*
      * Compute backpropagated gradient
      */
-    input_vector ret;
-    transform(weights_transposed.begin(), weights_transposed.end(), ret.begin(),
+    input_vector grad_out;
+    transform(weights_transposed.begin(), weights_transposed.end(), grad_out.begin(),
               [grad](array<T*, num_outputs>& w)
               {
                 T val = inner_product(w.begin(), w.end(), grad.begin(), 0.0,
@@ -231,17 +240,34 @@ struct Dense
               });
 
     /*
-     * compute dw
-     * dw = outer(x, grad)
+     * accumulate weight updates
+     * compute dw = dw + outer(x, grad)
      */
-    vector<input_vector> dw;
-    for (auto grad_i: grad)
-      {
-        auto row = input;
-        for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
-        dw.push_back(row);
-      }
+    transform(dw.begin(), dw.end(), grad.begin(), dw.begin(),
+              [input](input_vector& left, const T& grad_i)
+              {
+                /* compute outer product for each row */
+                auto row = input;
+                for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
 
+                /* accumulate into dw */
+                std::transform (left.begin(), left.end(), row.begin(), left.begin(), std::plus<T>());
+                return left;
+              });
+
+    /*
+     * accumulate bias updates
+     */
+    std::transform(db.begin(), db.end(), grad.begin(), db.begin(), std::plus<T>());
+
+    return grad_out;
+  }
+
+  /*
+   * Update Dense layer weigts/biases using accumulated dw/db
+   */
+  void train(float learning_rate)
+  {
     /*
      * compute w = w - learning_rate * dw
      */
@@ -256,20 +282,21 @@ struct Dense
                 return left;
               });
 
+
     if (use_bias)
       {
         /*
          * compute bias = bias - grad
          * assume learning rate = 1.0
          */
-        transform(bias.begin(), bias.end(), grad.begin(), bias.begin(),
-                  [](const T& bias_i, const T& grad_i)
+        transform(bias.begin(), bias.end(), db.begin(), bias.begin(),
+                  [learning_rate](const T& bias_i, const T& db_i)
                   {
-                    return bias_i - grad_i;
+                    return bias_i - learning_rate * db_i;
                   });
       }
 
-    return ret;
+    reset_grads();
   }
 
   /*
@@ -323,7 +350,16 @@ struct Dense
     return os;
   }
 
+  void reset_grads()
+  {
+    for (input_vector& dw_i: dw)
+      {
+        generate(dw_i.begin(), dw_i.end(), const_initializer<const_zero>);
+      }
+    generate(db.begin(), db.end(), const_initializer<const_zero>);
+  }
 };
+
 
 /*
  * Sigmoid layer class template
@@ -388,7 +424,6 @@ struct Softmax
               });
 
     T sum = accumulate(y.begin(), y.end(), static_cast<T>(0));
-
     for_each(y.begin(), y.end(), [sum](T &yi){ yi /= sum;});
 
     return y;
@@ -513,56 +548,65 @@ int main(void)
   Softmax<num_classes> softmax;
   CCE<num_classes> loss_fn;
   auto iterations = dataset.number_of_images;
+  int batch_size = 20;
 
   for (auto epoch=0; epoch < num_epochs; epoch++)
     {
       dataset.rewind();
       float loss_epoch = 0;
-      float loss;
 
       auto ts = high_resolution_clock::now();
 
-      for (auto iter = 0; iter < iterations; iter++)
+      for (auto iter = 0; iter < iterations / batch_size; iter++)
         {
-          auto ret1 = dataset.read_next(image, label);
-          if (ret1 == mnist_error::MNIST_EOF)
+          for (auto batch = 0; batch < batch_size; batch++)
             {
-              break;
+              auto ret = dataset.read_next(image, label);
+              if (ret == mnist_error::MNIST_EOF)
+                {
+                  break;
+                }
+
+              /*
+               * Compute Dense layer output y for input x
+               */
+              auto y1 = dense1.forward(image);
+              auto y2 = sigmoid1.forward(y1);
+              auto y3 = dense2.forward(y2);
+              auto y4 = softmax.forward(y3);
+              auto loss = loss_fn.forward(label, y4);
+
+              /*
+               * Back propagate loss
+               */
+              auto dloss_dy4 = loss_fn.backward(label, y4);
+              auto dy4_dy3 = softmax.backward(y4, dloss_dy4);
+              auto dy3_dy2 = dense2.backward(y2, dy4_dy3);
+              auto dy2_dy1 = sigmoid1.backward(y2, dy3_dy2);
+              auto dy1_dx = dense1.backward(image, dy2_dy1);
+
+              /*
+               * accumulate loss for reporting
+               */
+              loss_epoch += loss;
             }
 
-          /*
-           * Compute Dense layer output y for input x
-           */
-          auto y1 = dense1.forward(image);
-          auto y2 = sigmoid1.forward(y1);
-          auto y3 = dense2.forward(y2);
-          auto y4 = softmax.forward(y3);
-          auto loss = loss_fn.forward(label, y4);
-
-          /*
-           * Back propagate loss
-           */
-          auto dloss_dy4 = loss_fn.backward(label, y4);
-          auto dy4_dy3 = softmax.backward(y4, dloss_dy4);
-          auto dy3_dy2 = dense2.backward(y2, dy4_dy3, learning_rate);
-          auto dy2_dy1 = sigmoid1.backward(y2, dy3_dy2);
-          auto dy1_dx = dense1.backward(image, dy2_dy1, learning_rate);
-          loss_epoch += loss;
+          dense2.train(learning_rate);
+          dense1.train(learning_rate);
 
           auto te = high_resolution_clock::now();
-          auto dt_s = (float)duration_cast<seconds>(te - ts).count() / (iter + 1);
-
-          if ((iter % 5000) == 0)
+          auto dt_s = (float)duration_cast<seconds>(te - ts).count();
+          if (((iter+1) % (5000/batch_size)) == 0)
             {
-              printf("epoch=%d/%d iter=%d/%d time/iter=%.3f sec loss: %f\n", epoch, num_epochs, iter, iterations, dt_s, loss_epoch / (iter + 1));
+              printf("epoch=%d/%d iter=%d/%d time/iter=%.4f sec loss: %f\n", epoch, num_epochs, (iter+1), iterations/batch_size, dt_s / (iter + 1)*batch_size, loss_epoch / ((iter + 1)*batch_size));
             }
         }
 
       auto te = high_resolution_clock::now();
-      auto dt_s = (float)duration_cast<seconds>(te - ts).count();
+      auto dt_sec = (float)duration_cast<seconds>(te - ts).count();
 
       loss_epoch = loss_epoch / iterations;
-      printf("epoch %d/%d time/epoch=%.5f sec time left=%.4f hr avg loss: %f\n", epoch, num_epochs, dt_s / iterations / (60 * 60), dt_s * (num_epochs - epoch), loss_epoch);
+      printf("epoch %d/%d time/epoch=%.5f sec time left=%.4f hr; avg loss: %f\n", epoch, num_epochs, dt_sec, dt_sec * (num_epochs - epoch) / (60*60), loss_epoch);
 
     }
 
