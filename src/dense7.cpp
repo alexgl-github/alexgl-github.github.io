@@ -52,12 +52,31 @@ template<size_t num_inputs, size_t num_outputs, typename T = float, T (*weights_
 struct Dense
 {
 
+  /*
+   * input outut vector type definitions
+   */
   typedef array<T, num_inputs> input_vector;
   typedef array<T, num_outputs> output_vector;
-  typedef T (*initializer)();
+
+  /*
+   * dense layer weights matrix W, used in y = X * W
+   * weights are transposed to speed up forward() computation
+   */
   vector<input_vector> weights;
+
+  /*
+   * bias vector
+   */
   output_vector bias;
+
+  /*
+   * Flag to enable/disable bias
+   */
   bool use_bias = true;
+
+  /*
+   * Matrix of transposed weights W pointers, used to speed up backward() path
+   */
   vector<array<T*, num_outputs>> weights_transposed;
 
   /*
@@ -436,14 +455,6 @@ struct CCE
    */
   static T forward(const input_vector& yhat, const input_vector& y)
   {
-#if 1
-    T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
-                              [](const T& yhat_i, const T& y_i)
-                              {
-                                return yhat_i * logf(y_i);
-                              }
-                              );
-#else
     input_vector cce;
     transform(yhat.begin(), yhat.end(), y.begin(), cce.begin(),
               [](const T& yhat_i, const T& y_i)
@@ -452,7 +463,6 @@ struct CCE
               }
               );
     T loss = accumulate(cce.begin(), cce.end(), 0.0);
-#endif
     return -1 * loss;
   }
 
