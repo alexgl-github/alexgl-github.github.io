@@ -1,3 +1,11 @@
+---
+layout: post
+mathjax: true
+title:  "Gumber-Softmax"
+date:   2021-03-23 00:00:00 +0000
+categories: github jekyll
+---
+
 ## Gumbel-Softmax
 
 In some deep learning problems we need to draw samples from a categorical distribution with probabilities $$\pi$$.
