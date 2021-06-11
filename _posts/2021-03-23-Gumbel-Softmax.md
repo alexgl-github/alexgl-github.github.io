@@ -12,19 +12,19 @@ In some deep learning problems we need to draw samples from a categorical distri
 For example, in some reinforcement learning algorithms, next action is sampled randomly from probabilities predicted by policy DNN
 
 $$
-z = argmax(G(x) + log(\pi))
+z = argmax(G(y) + log(\pi))
 $$
 
-$$G(x)$$ is Gumbel distribution
+$$G(y)$$ is Gumbel distribution
 
 $$
-G(x) = -log(-log(y))
+G(y) = -log(-log(y))
 $$
 
-$$y$$ drawn from random uniform distribution
+Where y is $$y$$ drawn from random uniform distribution with
 
 $$
-pdf(x)=
+PDF(x)=
 \begin{cases}
 1, x \in [0, 1] \\
 0, otherwise
@@ -35,10 +35,10 @@ In this case backpropagation won't work because argmax function is not different
 We can approximate argmax with Softmax function
 
 $$
-z = softmax(\frac {G(x) + log(\pi)} {\tau})
+z = softmax(\frac {G(y) + log(\pi)} {\tau})
 $$
 
-$${\tau}$$ is Softmax temperature.
+Where $${\tau}$$ is Softmax temperature.
 
 For example, let's use a toy problem of finding index of the largest value in the input random array.
 
