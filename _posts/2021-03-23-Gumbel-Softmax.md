@@ -1,7 +1,7 @@
 ---
 layout: post
 mathjax: true
-title:  "Gumber-Softmax"
+title:  "Gumbel Softmax"
 date:   2021-03-23 00:00:00 +0000
 categories: github jekyll
 ---
