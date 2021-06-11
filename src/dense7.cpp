@@ -525,8 +525,10 @@ struct CCE
 
 int main(void)
 {
-  const char* images_path = "./data/train-images-idx3-ubyte";
-  const char* labels_path = "./data/train-labels-idx1-ubyte";
+  const char* train_images_path = "./data/train-images-idx3-ubyte";
+  const char* train_labels_path = "./data/train-labels-idx1-ubyte";
+  const char* validation_images_path = "./data/t10k-images-idx3-ubyte";
+  const char* validation_labels_path = "./data/t10k-labels-idx1-ubyte";
   const int num_classes = 10;
   const int num_rows = 28;
   const int num_cols = 28;
@@ -535,9 +537,13 @@ int main(void)
   std::array<float, num_classes> label;
   const int num_epochs = 3000;
   float learning_rate = 0.01;
+  int batch_size = 20;
+  mnist train_dataset(train_images_path, train_labels_path);
+  mnist validation_dataset(validation_images_path, validation_labels_path);
+  auto iterations = train_dataset.number_of_images;
 
-  mnist dataset(images_path, labels_path);
-  printf("found %d images and %d labels\n", dataset.number_of_images, dataset.number_of_labels);
+  printf("train dataset: %d images and %d labels\n", train_dataset.number_of_images, train_dataset.number_of_labels);
+  printf("validation dataset: %d images and %d labels\n", validation_dataset.number_of_images, validation_dataset.number_of_labels);
 
   /*
    * Create DNN layers and the loss
@@ -547,12 +553,10 @@ int main(void)
   Dense<256, num_classes, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense2;
   Softmax<num_classes> softmax;
   CCE<num_classes> loss_fn;
-  auto iterations = dataset.number_of_images;
-  int batch_size = 20;
 
   for (auto epoch=0; epoch < num_epochs; epoch++)
     {
-      dataset.rewind();
+      train_dataset.rewind();
       float loss_epoch = 0;
 
       auto ts = high_resolution_clock::now();
@@ -561,7 +565,7 @@ int main(void)
         {
           for (auto batch = 0; batch < batch_size; batch++)
             {
-              auto ret = dataset.read_next(image, label);
+              auto ret = train_dataset.read_next(image, label);
               if (ret == mnist_error::MNIST_EOF)
                 {
                   break;
@@ -598,7 +602,7 @@ int main(void)
           auto dt_s = (float)duration_cast<seconds>(te - ts).count();
           if (((iter+1) % (5000/batch_size)) == 0)
             {
-              printf("epoch=%d/%d iter=%d/%d time/iter=%.4f sec loss: %f\n", epoch, num_epochs, (iter+1), iterations/batch_size, dt_s / (iter + 1)*batch_size, loss_epoch / ((iter + 1)*batch_size));
+              printf("epoch=%d/%d iter=%d/%d time/iter=%.4f sec loss: %f\n", epoch, num_epochs, (iter+1), iterations/batch_size, dt_s / ((iter + 1)*batch_size), loss_epoch / ((iter + 1)*batch_size));
             }
         }
 
@@ -607,6 +611,27 @@ int main(void)
 
       loss_epoch = loss_epoch / iterations;
       printf("epoch %d/%d time/epoch=%.5f sec time left=%.4f hr; avg loss: %f\n", epoch, num_epochs, dt_sec, dt_sec * (num_epochs - epoch) / (60*60), loss_epoch);
+
+      float loss_validation = 0;
+      validation_dataset.rewind();
+      for (auto iter = 0; iter < validation_dataset.number_of_images; iter++)
+        {
+          auto ret = validation_dataset.read_next(image, label);
+          if (ret == mnist_error::MNIST_EOF)
+            {
+              break;
+            }
+
+          auto y1 = dense1.forward(image);
+          auto y2 = sigmoid1.forward(y1);
+          auto y3 = dense2.forward(y2);
+          auto y4 = softmax.forward(y3);
+          auto loss = loss_fn.forward(label, y4);
+          loss_validation += loss;
+        }
+
+      loss_validation = loss_validation / validation_dataset.number_of_images;
+      printf("epoch %d/%d validation loss: %f\n", epoch, num_epochs, loss_validation);
 
     }
 
