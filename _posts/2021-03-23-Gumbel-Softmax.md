@@ -1,6 +1,37 @@
 ## Gumbel-Softmax
 
-For some deep learning problems we need to sample discrete data.
+In some deep learning problems we need to draw samples from a categorical distribution with probabilities $$\pi$$.
+For example, in some reinforcement learning algorithms, next action is sampled randomly from probabilities predicted by policy DNN
+
+$$
+z = argmax(G(x) + log(\pi))
+$$
+
+$$G(x) is gumbel distribution
+
+$$
+G(x) = -log(-log(y))
+$$
+
+$$y$$ drawn from random uniform distribution
+
+$$
+pdf(x)=
+\begin{cases}
+1, x \in [0, 1]
+0, otherwise
+\end{cases}
+$$
+
+In this case backpropagation won't work because argmax function is not differentiable.
+We can approximate argmax with Softmax function
+
+$$
+z = softmax(\frac {G(x) + log(\pi)} {\tau})
+$$
+
+$${\tau}$$ is Softmax temperature.
+
 For example, let's use a toy problem of finding index of the largest value in the input random array.
 
 Numpy implementation:
