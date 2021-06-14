@@ -36,7 +36,7 @@ $$
 
 ### We can't backpropagate the error through argmax layer because argmax function is not differentiable.
 
-To Argmax can be approximated with a differentiable Softmax function, allowing to sample discrete random values in a differentiable way.
+Argmax can be approximated with a differentiable Softmax function, allowing to sample discrete random values in a differentiable way.
 
 Softmax $$\sigma(x)$$:
 
