@@ -23,13 +23,20 @@ $$
 
 Gumbel probability density function
 
-![useful image]({{ site.url }}/images/gumbell.png)
+![useful image]({{ site.url }}/images/gumbel.png)
 
-We can't backpropagate the error through argmax because the function is not differentiable.
-Argmax can be approximated with softmax function
+We can't backpropagate the error because argmax function is not differentiable.
+
+To Argmax can be approximated with a differentiable dot product of Softmax function and vector of indexes.
+
+Softmax $$\sigma(x)$$:
 
 $$
-z = softmax \left(\frac {G(y) + log(\pi)} {\tau}\right)
+z = \sigma \left(\frac {G(y) + log(\pi)} {\tau}\right)
+$$
+
+$$
+\sigma {(\boldsymbol{x})_{i}} = \frac {e^{x_{i}}} {\sum_{i=1}^{M} e^{x_{i}}}
 $$
 
 Where $${\tau}$$ is Softmax temperature.
