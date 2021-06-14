@@ -41,7 +41,7 @@ Argmax can be approximated with a differentiable Softmax function, allowing to s
 Softmax $$\sigma(x)$$:
 
 $$
-z = \sigma \left(G + log(\pi) right)
+z = \sigma \left(G + log(\pi) \right)
 $$
 
 $$
