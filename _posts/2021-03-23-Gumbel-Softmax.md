@@ -12,22 +12,22 @@ In some deep learning problems we need to draw samples from a categorical distri
 For example, in certain reinforcement learning algorithms, next action is sampled randomly from probabilities predicted by policy DNN
 
 $$
-z = argmax(G(y) + log(\pi))
+z = argmax(G + log(\pi))
 $$
 
-Where $\pi$ are action probabilities and  $$G(y)$$ is Gumbel distribution with PDF
+Where $\pi$ are action probabilities and $$G$$ is random value with Gumbel distribution defined by PDF
 
 $$
 f(x) = e^{-(x+e^{-x})}
 $$
 
-Gumbel probability density function
+Gumbel PDF
 
-![useful image]({{ site.url }}/images/gumbel.png)
+![gumbelpdf]({{ site.url }}/images/gumbel.jpg)
 
-We can't backpropagate the error because argmax function is not differentiable.
+We can't backpropagate the error through argmax layer because argmax function is not differentiable.
 
-To Argmax can be approximated with a differentiable dot product of Softmax function and vector of indexes.
+To Argmax can be approximated with a differentiable Softmax function.
 
 Softmax $$\sigma(x)$$:
 
@@ -40,6 +40,7 @@ $$
 $$
 
 Where $${\tau}$$ is Softmax temperature.
+
 
 For example, let's use a toy problem of finding index of the largest value in the input random array.
 
