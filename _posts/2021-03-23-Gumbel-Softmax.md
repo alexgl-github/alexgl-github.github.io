@@ -8,7 +8,7 @@ categories: github jekyll
 
 ## Gumbel-Softmax
 
-In some deep learning problems we need to draw samples from a categorical distribution with probabilities $$\pi$$.
+### In some deep learning problems we need to draw samples from a categorical distribution with probabilities $$\pi$$.
 For example, in certain reinforcement learning algorithms, next action is sampled randomly from probabilities predicted by policy DNN
 
 $$
@@ -21,11 +21,11 @@ $$
 f(x) = \frac {1} {\beta} e^{\frac {x-\alpha} {\beta} } e^{-e^{\frac {x-\alpha} {\beta}}}
 $$
 
-Gumbel PDF
+### Gumbel PDF
 
 ![gumbelpdf]({{ site.url }}/images/gumbel.jpg)
 
-$$\alpha$$ is location and $$\beta$$ is scale
+$$\alpha$$ is location and $$\beta$$ is scale parameters.
 
 The case where $$\alpha = 0$$ and $$\beta = 1$$ is called the standard gumbell distribution with PDF:
 
@@ -34,9 +34,9 @@ f(x) = e^x e^{-e^{-x}}
 $$
 
 
-We can't backpropagate the error through argmax layer because argmax function is not differentiable.
+### We can't backpropagate the error through argmax layer because argmax function is not differentiable.
 
-To Argmax can be approximated with a differentiable Softmax function.
+To Argmax can be approximated with a differentiable Softmax function, allowing to sample discrete random values in a differentiable way.
 
 Softmax $$\sigma(x)$$:
 
