@@ -15,28 +15,18 @@ $$
 z = argmax(G(y) + log(\pi))
 $$
 
-Where $$G(y)$$ is Gumbel distribution
+Where $\pi$ are action probabilities and  $$G(y)$$ is Gumbel distribution with PDF
 
 $$
-G(y) = -log(-log(y))
-$$
-
-$$y$$ drawn from random uniform distribution with
-
-$$
-PDF(x)=
-\begin{cases}
-1, x \in [0, 1] \\
-0, otherwise
-\end{cases}
+f(x) = e^{-(x+e^{-x})}
 $$
 
 Gumbel probability density function
 
-![useful image]({{ site.url }}/images/image.png)
+![useful image]({{ site.url }}/images/gumbell.png)
 
 We can't backpropagate the error through argmax because the function is not differentiable.
-Argmax can be approximated with oftmax function
+Argmax can be approximated with softmax function
 
 $$
 z = softmax \left(\frac {G(y) + log(\pi)} {\tau}\right)
