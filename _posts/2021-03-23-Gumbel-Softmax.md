@@ -31,6 +31,10 @@ PDF(x)=
 \end{cases}
 $$
 
+Gumbel probability density function
+
+![useful image]({{ site.url }}/images/image.png)
+
 We can't backpropagate the error through argmax because the function is not differentiable.
 Argmax can be approximated with oftmax function
 
