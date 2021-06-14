@@ -9,19 +9,19 @@ categories: github jekyll
 ## Gumbel-Softmax
 
 In some deep learning problems we need to draw samples from a categorical distribution with probabilities $$\pi$$.
-For example, in some reinforcement learning algorithms, next action is sampled randomly from probabilities predicted by policy DNN
+For example, in certain reinforcement learning algorithms, next action is sampled randomly from probabilities predicted by policy DNN
 
 $$
 z = argmax(G(y) + log(\pi))
 $$
 
-$$G(y)$$ is Gumbel distribution
+Where $$G(y)$$ is Gumbel distribution
 
 $$
 G(y) = -log(-log(y))
 $$
 
-Where y is $$y$$ drawn from random uniform distribution with
+$$y$$ drawn from random uniform distribution with
 
 $$
 PDF(x)=
@@ -31,11 +31,11 @@ PDF(x)=
 \end{cases}
 $$
 
-In this case backpropagation won't work because argmax function is not differentiable.
-We can approximate argmax with Softmax function
+We can't backpropagate the error through argmax because the function is not differentiable.
+Argmax can be approximated with oftmax function
 
 $$
-z = softmax(\frac {G(y) + log(\pi)} {\tau})
+z = softmax \left(\frac {G(y) + log(\pi)} {\tau}\right)
 $$
 
 Where $${\tau}$$ is Softmax temperature.
