@@ -18,7 +18,7 @@ $$
 Where $\pi$ are action probabilities and $$G$$ is random value with Gumbel distribution defined by PDF
 
 $$
-f(x) = e^{-(x+e^{-x})}
+f(x) = \frac {1} {\beta} e^{\frac {x-\alpha} {\beta} } e^{-e^{\frac {x-\alpha} {\beta}}}
 $$
 
 Gumbel PDF
@@ -40,6 +40,8 @@ $$
 $$
 
 Where $${\tau}$$ is Softmax temperature.
+Temperature $${\tau}$$ is a hyperparameter, changing softmax probabilities:
+lower temperatures make softmax output probabilities more "confident".
 
 
 For example, let's use a toy problem of finding index of the largest value in the input random array.
