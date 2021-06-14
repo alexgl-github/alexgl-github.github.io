@@ -25,9 +25,9 @@ $$
 
 ![gumbelpdf]({{ site.url }}/images/gumbel.jpg)
 
-$$\alpha$$ is location and $$\beta$$ is scale parameters.
+where $$\alpha$$ is location and $$\beta$$ is scale parameters.
 
-The case where $$\alpha = 0$$ and $$\beta = 1$$ is called the standard gumbell distribution with PDF:
+The case where $$\alpha = 0$$ and $$\beta = 1$$ is called the standard gumbel distribution with PDF:
 
 $$
 f(x) = e^x e^{-e^{-x}}
@@ -53,7 +53,7 @@ Temperature $${\tau}$$ is a hyperparameter, changing softmax probabilities:
 lower temperatures make softmax output probabilities more "confident".
 
 
-Now let's write somee code, using a toy problem of finding index of the largest value in the input random array.
+Now let's write some code, using a toy problem of finding index of the largest value in the input random array.
 
 Numpy implementation:
 
