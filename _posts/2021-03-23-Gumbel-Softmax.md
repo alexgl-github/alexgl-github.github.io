@@ -25,6 +25,15 @@ Gumbel PDF
 
 ![gumbelpdf]({{ site.url }}/images/gumbel.jpg)
 
+$$\alpha$$ is location and $$\beta$$ is scale
+
+The case where $$\alpha = 0$$ and $$\beta = 1$$ is called the standard gumbell distribution with PDF:
+
+$$
+f(x) = e^x e^{-e^{-x}}
+$$
+
+
 We can't backpropagate the error through argmax layer because argmax function is not differentiable.
 
 To Argmax can be approximated with a differentiable Softmax function.
@@ -44,7 +53,7 @@ Temperature $${\tau}$$ is a hyperparameter, changing softmax probabilities:
 lower temperatures make softmax output probabilities more "confident".
 
 
-For example, let's use a toy problem of finding index of the largest value in the input random array.
+Now let's write somee code, using a toy problem of finding index of the largest value in the input random array.
 
 Numpy implementation:
 
