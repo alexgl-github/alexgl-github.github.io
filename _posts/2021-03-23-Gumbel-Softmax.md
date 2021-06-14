@@ -51,8 +51,7 @@ $$
 Where $${\tau}$$ is Softmax temperature.
 Temperature $${\tau}$$ is a hyperparameter, changing softmax probabilities:
 lower temperatures make softmax output probabilities more "confident".
-With $$\lim\limits_{\tau \to 1}$$, softmax $$$\sigma(x)$$ will produce one-hot vector.
-
+With $$\lim\limits_{\tau \to 1}$$, softmax $$\sigma(x)$$ will produce one-hot vector.
 
 Now let's write some code, using a toy problem of finding index of the largest value in the input random array.
 
