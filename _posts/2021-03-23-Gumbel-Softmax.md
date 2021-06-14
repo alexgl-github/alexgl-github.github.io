@@ -41,11 +41,11 @@ Argmax can be approximated with a differentiable Softmax function, allowing to s
 Softmax $$\sigma(x)$$:
 
 $$
-z = \sigma \left({G + log(\pi) right)
+z = \sigma \left(G + log(\pi) right)
 $$
 
 $$
-\sigma {(\boldsymbol{x}_{i})} = \frac {e^{\frac {x_{i}} {\tau}}} {\sum_{i=1}^{M} frac {e^{x_{i}}} {\tau}}
+\sigma {(\boldsymbol{x}_{i})} = \frac {e^{\frac {x_{i}} {\tau}}} {\sum_{i=1}^{M} e^{x_{i}} {\tau}}
 $$
 
 Where $${\tau}$$ is Softmax temperature.
