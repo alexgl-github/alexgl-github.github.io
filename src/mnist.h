@@ -1,4 +1,5 @@
 #pragma once
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -130,7 +131,6 @@ struct mnist
     ssize_t ret = read(fd_images, raw_data.data(), image_size);
     if (ret == 0)
       {
-        printf("read_next_image EOF\n");
         return MNIST_EOF;
       }
 

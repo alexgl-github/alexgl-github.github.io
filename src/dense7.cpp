@@ -13,7 +13,7 @@
 #include <iterator>
 #include <cmath>
 #include "mnist.h"
-
+#include "f1.h"
 
 using namespace std;
 using std::chrono::high_resolution_clock;
@@ -537,7 +537,7 @@ int main(void)
   std::array<float, num_classes> label;
   const int num_epochs = 3000;
   float learning_rate = 0.01;
-  int batch_size = 20;
+  int batch_size = 1;
   mnist train_dataset(train_images_path, train_labels_path);
   mnist validation_dataset(validation_images_path, validation_labels_path);
   auto iterations = train_dataset.number_of_images;
@@ -548,29 +548,32 @@ int main(void)
   /*
    * Create DNN layers and the loss
    */
-  Dense<image_size, 256, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense1;
-  Sigmoid<256> sigmoid1;
-  Dense<256, num_classes, float, const_initializer<const_onehalf>, const_initializer<const_onehalf>> dense2;
+  Dense<image_size, 32, float, const_initializer<const_zero>, const_initializer<const_zero>> dense1;
+  Sigmoid<32> sigmoid1;
+  Dense<32, num_classes, float, const_initializer<const_zero>, const_initializer<const_zero>> dense2;
   Softmax<num_classes> softmax;
   CCE<num_classes> loss_fn;
+  f1<num_classes> f1_train;
+  f1<num_classes> f1_validation;
+  float loss_epoch_prev = 1e-7;
 
   for (auto epoch=0; epoch < num_epochs; epoch++)
     {
       train_dataset.rewind();
       float loss_epoch = 0;
-
+      f1_train.reset();
       auto ts = high_resolution_clock::now();
+
+      auto ret = train_dataset.read_next(image, label);
+      if (ret == mnist_error::MNIST_EOF)
+        {
+          break;
+        }
 
       for (auto iter = 0; iter < iterations / batch_size; iter++)
         {
           for (auto batch = 0; batch < batch_size; batch++)
             {
-              auto ret = train_dataset.read_next(image, label);
-              if (ret == mnist_error::MNIST_EOF)
-                {
-                  break;
-                }
-
               /*
                * Compute Dense layer output y for input x
                */
@@ -581,28 +584,55 @@ int main(void)
               auto loss = loss_fn.forward(label, y4);
 
               /*
+               * Update f1 score
+               */
+              f1_train.update(label, y4);
+
+              /*
                * Back propagate loss
                */
               auto dloss_dy4 = loss_fn.backward(label, y4);
               auto dy4_dy3 = softmax.backward(y4, dloss_dy4);
               auto dy3_dy2 = dense2.backward(y2, dy4_dy3);
               auto dy2_dy1 = sigmoid1.backward(y2, dy3_dy2);
-              auto dy1_dx = dense1.backward(image, dy2_dy1);
+              auto dy1_dx = dense1.backward(image, dy3_dy2);
 
               /*
                * accumulate loss for reporting
                */
               loss_epoch += loss;
+
+              dense2.train(learning_rate);
+              dense1.train(learning_rate);
+
+              printf("label=");
+              for_each(label.begin(), label.end(), print_fn);
+              printf("\n");
+              printf("y4=");
+              for_each(y4.begin(), y4.end(), print_fn);
+              printf("\n");
+              printf("%d/%d loss=%f avg loss=%f  f1=%f\n", iter, iterations, loss, loss_epoch/(iter+1), f1_train.score());
+
+              if (iter==999)
+                {
+                  //printf("updated dense 1 layer weights:\n%s", ((string)dense1).c_str());
+                  //printf("updated dense 2 layer weights:\n%s", ((string)dense2).c_str());
+                  return 0;
+                }
             }
 
-          dense2.train(learning_rate);
-          dense1.train(learning_rate);
 
           auto te = high_resolution_clock::now();
           auto dt_s = (float)duration_cast<seconds>(te - ts).count();
           if (((iter+1) % (5000/batch_size)) == 0)
             {
-              printf("epoch=%d/%d iter=%d/%d time/iter=%.4f sec loss: %f\n", epoch, num_epochs, (iter+1), iterations/batch_size, dt_s / ((iter + 1)*batch_size), loss_epoch / ((iter + 1)*batch_size));
+              printf("epoch=%d/%d iter=%d/%d time/iter=%.4f sec loss=%.5f f1=%.5f\n",
+                     epoch,
+                     num_epochs,
+                     (iter+1), iterations/batch_size,
+                     dt_s / ((iter + 1)*batch_size),
+                     loss_epoch / ((iter + 1)*batch_size),
+                     f1_train.score());
             }
         }
 
@@ -610,10 +640,26 @@ int main(void)
       auto dt_sec = (float)duration_cast<seconds>(te - ts).count();
 
       loss_epoch = loss_epoch / iterations;
-      printf("epoch %d/%d time/epoch=%.5f sec time left=%.4f hr; avg loss: %f\n", epoch, num_epochs, dt_sec, dt_sec * (num_epochs - epoch) / (60*60), loss_epoch);
+      if (fabs(loss_epoch_prev - loss_epoch)/loss_epoch < 0.05)
+        {
+          learning_rate = 0.9 * learning_rate;
+        }
+
+      printf("epoch %d/%d time/epoch=%.5f sec; time left=%.4f hr; avg loss=%.5f; f1=%.5f; next learning rate=%.5f %.5f\n",
+             epoch,
+             num_epochs,
+             dt_sec, dt_sec * (num_epochs - epoch) / (60*60),
+             loss_epoch,
+             f1_train.score(),
+             learning_rate,
+             fabs(loss_epoch_prev - loss_epoch)/loss_epoch);
+
+      loss_epoch_prev = loss_epoch;
 
       float loss_validation = 0;
       validation_dataset.rewind();
+      f1_validation.reset();
+
       for (auto iter = 0; iter < validation_dataset.number_of_images; iter++)
         {
           auto ret = validation_dataset.read_next(image, label);
@@ -628,11 +674,12 @@ int main(void)
           auto y4 = softmax.forward(y3);
           auto loss = loss_fn.forward(label, y4);
           loss_validation += loss;
+          f1_validation.update(label, y4);
         }
 
       loss_validation = loss_validation / validation_dataset.number_of_images;
-      printf("epoch %d/%d validation loss: %f\n", epoch, num_epochs, loss_validation);
-
+      printf("epoch %d/%d validation loss: %f  f1: %.5f\n",
+             epoch, num_epochs, loss_validation, f1_validation.score());
     }
 
   return 0;
