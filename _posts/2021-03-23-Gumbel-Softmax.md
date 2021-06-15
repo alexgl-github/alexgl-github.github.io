@@ -30,7 +30,7 @@ where $$\lambda$$ is location and $$\beta$$ is scale parameters.
 The case where $$\lambda = 0$$ and $$\beta = 1$$ is called the standard gumbel distribution with PDF:
 
 $$
-f(x) = e^x e^{-e^{-x}}
+f(x) = e^x e^{-e^x}
 $$
 
 
