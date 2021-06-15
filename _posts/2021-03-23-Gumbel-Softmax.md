@@ -18,16 +18,16 @@ $$
 Where $\pi$ are action probabilities and $$G$$ is random value with Gumbel distribution defined by PDF
 
 $$
-f(x) = \frac {1} {\beta} e^{\frac {x-\alpha} {\beta} } e^{-e^{\frac {x-\alpha} {\beta}}}
+f(x) = \frac {1} {\beta} e^{\frac {x-\lambda} {\beta} } e^{-e^{\frac {x-\lambda} {\beta}}}
 $$
 
 ### Gumbel PDF
 
 ![gumbelpdf]({{ site.url }}/images/gumbel.jpg)
 
-where $$\alpha$$ is location and $$\beta$$ is scale parameters.
+where $$\lambda$$ is location and $$\beta$$ is scale parameters.
 
-The case where $$\alpha = 0$$ and $$\beta = 1$$ is called the standard gumbel distribution with PDF:
+The case where $$\lambda = 0$$ and $$\beta = 1$$ is called the standard gumbel distribution with PDF:
 
 $$
 f(x) = e^x e^{-e^{-x}}
