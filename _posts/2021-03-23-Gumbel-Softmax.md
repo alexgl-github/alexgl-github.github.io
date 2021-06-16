@@ -8,8 +8,8 @@ categories: github jekyll
 
 ## Gumbel-Softmax
 
-### In some deep learning problems we need to draw samples from a categorical distribution with probabilities $$\pi$$.
-For example, in certain reinforcement learning algorithms, next action is sampled randomly from probabilities predicted by policy DNN
+### In some deep learning problems we need to draw samples from a categorical distribution.
+For example, in certain reinforcement learning algorithms, next action is sampled randomly from probabilities $$\pi$$ predicted by policy DNN
 
 $$
 z = argmax(G + log(\pi))
