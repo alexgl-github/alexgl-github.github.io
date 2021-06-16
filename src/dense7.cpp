@@ -681,17 +681,23 @@ int main(void)
           dense1.train(learning_rate);
 
           /*
-           * Capture clocks and print losses and time stats
+           * Print loss and accuracy per each reporting interval
            */
-          if ( (((iter+1) * batch_size) % report_interval) == 0)
+          if (epoch == 0 && iter == 0)
             {
-              auto te = high_resolution_clock::now();
-              auto dt = (float)duration_cast<seconds>(te - ts).count();
-              printf("epoch=%d/%d iter=%d/%d time/iter=%.4f sec loss=%.5f f1=%.5f\n",
+              printf("epoch=%d/%d iteration=%d/%d loss=%.5f f1=%.5f\n",
                      epoch,
                      num_epochs,
                      (iter+1), iterations/batch_size,
-                     dt / ((iter + 1)*batch_size),
+                     loss_epoch / ((iter + 1)*batch_size),
+                     f1_train.score());
+            }
+          if ( (((iter+1) * batch_size) % report_interval) == 0)
+            {
+              printf("epoch=%d/%d iteration=%d/%d loss=%.5f f1=%.5f\n",
+                     epoch,
+                     num_epochs,
+                     (iter+1), iterations/batch_size,
                      loss_epoch / ((iter + 1)*batch_size),
                      f1_train.score());
             }
