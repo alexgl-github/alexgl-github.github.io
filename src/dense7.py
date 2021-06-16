@@ -4,6 +4,9 @@ import importlib
 from tensorflow.keras.utils import to_categorical
 import tensorflow.keras.backend as K
 
+np.set_printoptions(precision=10)
+
+
 def get_f1(y_true, y_pred):
     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
     possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
@@ -12,6 +15,7 @@ def get_f1(y_true, y_pred):
     recall = true_positives / (possible_positives + K.epsilon())
     f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
     return f1_val
+
 
 class f1(object):
 
@@ -53,8 +57,8 @@ class f1(object):
             tp = self.preds[idx, idx]
             fp_tp = np.sum(self.preds[idx, :])
             fn_tp = np.sum(self.preds[:, idx])
-            precision = (tp) / (fp_tp + self.eps)
-            recall = (tp) / (fn_tp + self.eps)
+            precision = tp / (fp_tp + self.eps)
+            recall = tp / (fn_tp + self.eps)
             score = 2 * precision * recall / (precision + recall + self.eps)
             scores.append(score)
 
@@ -63,26 +67,34 @@ class f1(object):
     def reset(self):
         self.preds = np.zeros((0, 0))
 
-def get_dataset(data):
-    dataset_length = len(data)
-    def representative_dataset():
-        for _ in range(dataset_length):
-            idx = np.random.randint(low=0, high=dataset_length)
-            x = data[idx]
-        yield [x]
-    return representative_dataset
+
+
 
 model = tf.keras.models.Sequential([
     tf.keras.layers.Input(shape=(28, 28)),
     tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(32, activation='sigmoid', kernel_initializer=tf.keras.initializers.zeros(), bias_initializer=tf.keras.initializers.zeros()),
-    tf.keras.layers.Dense(10, activation=None, kernel_initializer=tf.keras.initializers.zeros(), bias_initializer=tf.keras.initializers.zeros()),
+    tf.keras.layers.Dense(128, activation='sigmoid',
+                          kernel_initializer= tf.keras.initializers.RandomUniform(minval=-1.0, maxval=1.0, seed=None), #tf.keras.initializers.RandomNormal(stddev=0.01),
+                          bias_initializer=tf.keras.initializers.zeros()),
+ #, kernel_initializer=tf.keras.initializers.zeros(), bias_initializer=tf.keras.initializers.zeros()),
+    tf.keras.layers.Dense(10, activation=None,
+                          kernel_initializer=  tf.keras.initializers.RandomUniform(minval=-1.0, maxval=1.0, seed=None), # tf.keras.initializers.RandomNormal(stddev=0.01),
+                          bias_initializer=tf.keras.initializers.zeros()),
     tf.keras.layers.Softmax()
 ])
 
+
+model.compile(
+    optimizer=tf.keras.optimizers.Adam(0.001),
+    loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False, reduction=tf.keras.losses.Reduction.SUM),
+    metrics=[tf.keras.metrics.CategoricalAccuracy(), get_f1],
+)
+
+
 learning_rate = 0.01
 loss_fn = tf.keras.losses.CategoricalCrossentropy()
-optimizer = tf.keras.optimizers.SGD(learning_rate=learning_rate, momentum=0)
+optimizer = tf.keras.optimizers.SGD(learning_rate=learning_rate, momentum=0.0)
+
 
 (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data("./mnist.npz")
 x_train = x_train.astype(np.float32) / 255.0
@@ -90,44 +102,50 @@ x_test = x_test.astype(np.float32) / 255.0
 y_train = to_categorical(y_train)
 y_test = to_categorical(y_test)
 
-loss_epoch = 0.0
-f1_score = f1()
-iterations_epoch = 1000 #len(x_train)
+optimizer=tf.keras.optimizers.Adam(0.001)
 
-for iter in range(iterations_epoch):
-    with tf.GradientTape() as tape:
-        y_pred = model(x_train[0:0+1])
-        y_true = y_train[0:0+1]
-        loss = loss_fn(y_true, y_pred)
-        gradients = tape.gradient([loss], model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    loss_epoch += loss
-    f1_score.update_onehot(y_true=y_true, y_pred=y_pred)
-    #if (iter % 500) == 0:
-    print(f"y_pred={y_pred} y_true={y_true}")
-    print(f"{iter}/{iterations_epoch} loss={loss} {loss_epoch/(iter+1)} f1={f1_score.score()}")
+model.compile(
+    optimizer=tf.keras.optimizers.Adam(0.001),
+    loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False, reduction=tf.keras.losses.Reduction.SUM),
+    metrics=[tf.keras.metrics.CategoricalAccuracy(), get_f1],
+)
 
+model.summary()
 
-    if iter==1:
-        #print("f{iter} updated weights=\n")
-        #for idx, layer_vars in enumerate(model.trainable_variables):
-        #    print(f"{idx+1}) {layer_vars.name}\n{layer_vars.numpy()}")
-        pass
+model.fit(
+    x=x_train, y=y_train,
+    epochs=1,
+    validation_data=(x_test, y_test),
+    batch_size=20
+)
+
 
 exit(0)
-print(f"loss={loss_epoch/iterations_epoch} f1={f1_score.score()}")
+
+iterations_epoch = len(x_train)
+num_epochs = 10
+
+for epoch in range(num_epochs):
+    loss_epoch = 0.0
+    f1_score = f1()
+
+    for iter in range(iterations_epoch):
+        with tf.GradientTape() as tape:
+            y_pred = model(x_train[iter:iter+1])
+            y_true = y_train[iter:iter+1]
+            loss = loss_fn(y_true, y_pred)
+            gradients = tape.gradient([loss], model.trainable_variables)
+        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        loss_epoch += loss
+        f1_score.update_onehot(y_true=y_true, y_pred=y_pred)
+        if (iter % 1000) == 0:
+            #print("y_pred={} {} \ny_true={}".format(y_pred, np.sum(y_pred), y_true))
+            print(f"epoch={epoch}/{num_epochs} iter={iter}/{iterations_epoch} loss={loss:.6f} avg loss={loss_epoch/(iter+1):.6f} f1={f1_score.score():.6f}")
+            #print("\n")
+
+    print(f"loss={loss_epoch/iterations_epoch} f1={f1_score.score()}")
 
 model.save("./mnist")
 model.summary()
-converter = tf.lite.TFLiteConverter.from_saved_model("./mnist")
-converter.optimizations = [tf.lite.Optimize.DEFAULT]
-converter.representative_dataset = get_dataset(x_train)
-converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-converter.inference_input_type = tf.int8
-converter.inference_output_type = tf.int8
-tflite_quant_model = converter.convert()
-
-with open("mnist.tflite", "wb") as fd:
-    fd.write(tflite_quant_model)
 
 

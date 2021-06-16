@@ -3,6 +3,22 @@
 #include <array>
 #include <algorithm>
 
+/*
+ * F1 score class
+ *
+ * Computes F1 score for multi-class classification
+ *
+ * f1_score = 2 * Preision * Recall / (Precision + Recall)
+ *
+ * TP = TruePositive
+ * FP = FalsePositive
+ * FN = FalseNegative
+ *
+ * Precision(class) = TP(class) / (TP(class) + FP(class))
+ * Recall(class) = TP(class) / (TP(class) + FN(class))
+ *
+ *
+ */
 template<size_t num_classes=10, typename T=float>
 struct f1
 {
@@ -11,11 +27,17 @@ struct f1
   std::array<int, num_classes> tp;
   static constexpr float eps = 0.000001;
 
+  /*
+   * Default f1 class constructor
+   */
   f1()
   {
     reset();
   }
 
+  /*
+   * Reset accumulated TP, FP, FN counters
+   */
   void reset()
   {
     fp.fill({});
@@ -23,6 +45,11 @@ struct f1
     tp.fill({});
   }
 
+  /*
+   * Update TP, FP, FN counters
+   *  y_true is one-hot label
+   *  y_pred is predicted probabilites vector output from softmax 
+   */
   void update(const std::array<T, num_classes>& y_true, const std::array<T, num_classes>& y_pred)
   {
     auto idx_true = std::distance(y_true.begin(), std::max_element(y_true.begin(), y_true.end()));
@@ -35,6 +62,9 @@ struct f1
       }
   }
 
+  /*
+   * Get f1 score value as average of f1 class scores
+   */
   float score()
   {
 
@@ -58,11 +88,6 @@ struct f1
                      auto score =  2.0 * precision_i * recall_i / (precision_i + recall_i + eps);
                      return score;
                    });
-
-    constexpr auto print_fn = [](const float& x)  -> void {printf("%.2f ", x);};
-    //printf("fp=");
-    //std::for_each(fp.begin(), fp.end(), print_fn);
-    //printf("\n");
 
     auto score_total = std::accumulate(scores.begin(), scores.end(), static_cast<float>(0.0));
     return score_total / static_cast<float>(num_classes);
