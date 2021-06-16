@@ -1,7 +1,7 @@
 ---
 layout: post
 mathjax: true
-title:  "Dense layer with backpropagation in C++, part 3"
+title:  "DNN with backpropagation in C++, part 3"
 date:   2021-05-20 00:00:00 +0000
 categories: github jekyll
 ---

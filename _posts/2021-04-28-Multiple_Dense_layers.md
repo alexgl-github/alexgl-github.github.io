@@ -1,7 +1,7 @@
 ---
 layout: post
 mathjax: true
-title:  "Dense layer with backpropagation in C++, part 2"
+title:  "DNN with backpropagation in C++, part 2"
 date:   2021-04-28 00:00:00 +0000
 categories: github jekyll
 ---
@@ -10,7 +10,7 @@ categories: github jekyll
 
 I'll implement a two layer neural-network in C++.
 
-As a staring point we'll use source code from ["Dense layer with backpropagation in C++"] [previous_post]
+As a staring point we'll use source code from ["DNN with backpropagation in C++"] [previous_post]
 
 Again, to keep it simple we'll assume:
 - there's no bias in the dense layers;
