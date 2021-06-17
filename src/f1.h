@@ -1,5 +1,4 @@
 #pragma once
-
 #include <array>
 #include <algorithm>
 
@@ -22,8 +21,8 @@
 template<size_t num_classes=10, typename T=float>
 struct f1
 {
-  std::array<int, num_classes> fp;
-  std::array<int, num_classes> fn;
+  std::array<int, num_classes> tp_fp;
+  std::array<int, num_classes> tp_fn;
   std::array<int, num_classes> tp;
   static constexpr float eps = 0.000001;
 
@@ -40,22 +39,22 @@ struct f1
    */
   void reset()
   {
-    fp.fill({});
-    fn.fill({});
+    tp_fp.fill({});
+    tp_fn.fill({});
     tp.fill({});
   }
 
   /*
    * Update TP, FP, FN counters
    *  y_true is one-hot label
-   *  y_pred is predicted probabilites vector output from softmax 
+   *  y_pred is predicted probabilites vector output from softmax
    */
   void update(const std::array<T, num_classes>& y_true, const std::array<T, num_classes>& y_pred)
   {
     auto idx_true = std::distance(y_true.begin(), std::max_element(y_true.begin(), y_true.end()));
     auto idx_pred = std::distance(y_pred.begin(), std::max_element(y_pred.begin(), y_pred.end()));
-    fp[idx_pred] += 1;
-    fn[idx_true] += 1;
+    tp_fp[idx_pred] += 1;
+    tp_fn[idx_true] += 1;
     if (idx_true == idx_pred)
       {
         tp[idx_true] += 1;
@@ -72,12 +71,12 @@ struct f1
     std::array<float, num_classes> recall;
     std::array<float, num_classes> scores;
 
-    std::transform(tp.begin(), tp.end(), fp.begin(), precision.begin(),
+    std::transform(tp.begin(), tp.end(), tp_fp.begin(), precision.begin(),
                    [](const int& tp_i, const int& fp_i)
                    {
                      return static_cast<float>(tp_i) / static_cast<float>(fp_i + eps);
                    });
-    std::transform(tp.begin(), tp.end(), fn.begin(), recall.begin(),
+    std::transform(tp.begin(), tp.end(), tp_fn.begin(), recall.begin(),
                    [](const int& tp_i, const int& fn_i)
                    {
                      return static_cast<float>(tp_i) / static_cast<float>(fn_i + eps);
