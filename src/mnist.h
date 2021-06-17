@@ -215,7 +215,7 @@ struct mnist
    * Utility to convert betwwen big/little endiannes
    */
   template<typename S = uint32_t>
-  static S endian_swap(T val)
+  static S endian_swap(S val)
   {
     typedef union
     {

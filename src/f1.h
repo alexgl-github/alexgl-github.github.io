@@ -24,7 +24,7 @@ struct f1
   std::array<int, num_classes> tp_fp;
   std::array<int, num_classes> tp_fn;
   std::array<int, num_classes> tp;
-  static constexpr float eps = 0.000001;
+  static constexpr float eps = 1e-7;
 
   /*
    * Default f1 class constructor
