@@ -82,7 +82,15 @@ struct Dense
    * Matrix of transposed weights W pointers, used to speed up backward() path
    */
   vector<array<T*, num_outputs>> weights_transposed;
+
+  /*
+   * dw is accumulating weight updates in backward() pass.
+   */
   vector<input_vector> dw;
+
+  /*
+   * db is accumulating bias updates in backward() pass.
+   */
   output_vector db;
 
   /*
