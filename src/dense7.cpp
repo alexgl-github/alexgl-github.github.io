@@ -724,7 +724,7 @@ int main(void)
       printf("epoch %d/%d time/epoch=%.5f sec; time left=%.4f hr; avg loss=%.5f; f1=%.5f\n",
              epoch,
              num_epochs,
-             dt, dt * (num_epochs - epoch) / (60*60),
+             dt, dt * (num_epochs - epoch - 1) / (60*60),
              loss_epoch,
              f1_train.score());
 
