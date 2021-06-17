@@ -202,8 +202,6 @@ struct Dense
      * Weight update according to SGD algorithm with momentum = 0.0 is:
      *  w = w - learning_rate * d_loss/dw
      *
-     * For simplicity assume learning_rate = 1.0
-     *
      * d_loss/dw = dloss/dy * dy/dw
      * d_loss/dbias = dloss/dy * dy/dbias
      *
@@ -217,7 +215,6 @@ struct Dense
      *  dy/dbias = 1
      *
      * For clarity we:
-     *  assume learning_rate = 1.0
      *  first compute dw
      *  second update weights by subtracting dw
      */
@@ -290,7 +287,6 @@ struct Dense
       {
         /*
          * compute bias = bias - grad
-         * assume learning rate = 1.0
          */
         transform(bias.begin(), bias.end(), db.begin(), bias.begin(),
                   [learning_rate](const T& bias_i, const T& db_i)
