@@ -399,10 +399,11 @@ struct Sigmoid
   /*
    * Sigmoid backward pass
    */
-  static input_vector backward(const input_vector& y, const input_vector grad)
+  static input_vector backward(const input_vector& x, const input_vector grad)
   {
     input_vector ret;
 
+    const input_vector y = forward(x);
     transform(y.begin(), y.end(), grad.begin(), ret.begin(),
               [](const T& y_i, const T& grad_i)
               {
@@ -449,7 +450,7 @@ struct Softmax
   /*
    * Softmax backward function
    */
-  static input_vector backward(const input_vector& y, const input_vector& grad_inp)
+  static input_vector backward(const input_vector& x, const input_vector& grad_inp)
   {
     input_vector grad_out;
     vector<input_vector> J;
@@ -457,6 +458,7 @@ struct Softmax
     /*
      * Compute Jacobian of Softmax
      */
+    const input_vector y = forward(x);
     int s_i_j = 0;
     for (auto y_i: y)
       {
@@ -667,9 +669,9 @@ int main(void)
                * Back propagate loss
                */
               auto dloss_dy4 = loss_fn.backward(label, y4);
-              auto dy4_dy3 = softmax.backward(y4, dloss_dy4);
+              auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
               auto dy3_dy2 = dense2.backward(y2, dy4_dy3);
-              auto dy2_dy1 = sigmoid1.backward(y2, dy3_dy2);
+              auto dy2_dy1 = sigmoid1.backward(y1, dy3_dy2);
               dense1.backward(image, dy2_dy1);
 
               /*
