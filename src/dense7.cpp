@@ -568,9 +568,9 @@ int main(void)
   const int num_epochs = 5;
 
   /*
-   * Print report every 10000 iterations
+   * Print report every 20000 iterations
    */
-  const int report_interval = 10000;
+  const int report_interval = 20000;
 
   /*
    * Storage for next image and label
@@ -595,13 +595,13 @@ int main(void)
   mnist validation_dataset(validation_images_path, validation_labels_path);
 
 
-  printf("train dataset: %d images and %d labels\n", train_dataset.number_of_images, train_dataset.number_of_labels);
-  printf("validation dataset: %d images and %d labels\n", validation_dataset.number_of_images, validation_dataset.number_of_labels);
+  printf("train dataset: %d images and %d labels\n", train_dataset.images.count, train_dataset.labels.count);
+  printf("validation dataset: %d images and %d labels\n", validation_dataset.images.count, validation_dataset.labels.count);
 
   /*
    * Number of iterations in epoch is number of records in the dataset
    */
-  const auto iterations = train_dataset.number_of_images;
+  const auto iterations = train_dataset.images.count;
 
   /*
    * Create DNN layers and the loss
@@ -741,7 +741,7 @@ int main(void)
       /*
        * Repeat each epoch for entire validation dataset
        */
-      for (auto iter = 0; iter < validation_dataset.number_of_images; iter++)
+      for (auto iter = 0; iter < validation_dataset.images.count; iter++)
         {
           /*
            * Read next image and label
@@ -771,7 +771,7 @@ int main(void)
       /*
        * Report validation loss and f1 score
        */
-      loss_validation = loss_validation / validation_dataset.number_of_images;
+      loss_validation = loss_validation / validation_dataset.images.count;
       printf("epoch %d/%d validation loss: %f  f1: %.5f\n",
              epoch, num_epochs, loss_validation, f1_validation.score());
     }

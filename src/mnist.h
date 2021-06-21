@@ -54,18 +54,38 @@ struct mnist
       MNIST_ERROR = -2
     };
 
+  /*
+   * Header of images binary file
+   */
+  struct images_header
+  {
+    int32_t magic;
+    int32_t count;
+    int32_t num_rows;
+    int32_t num_cols;
+  };
+
+  images_header images;
+
+  /*
+   * Header of labels binary file
+   */
+  struct labels_header
+  {
+    int32_t magic;
+    int32_t count;
+  };
+
+  labels_header labels;
+
   /* images file descriptor */
   int fd_images = -1;
   /* labels file descriptor */
   int fd_labels = -1;
   /* images magic number */
-  const uint32_t magic_image_value = 0x00000803;
+  const int32_t magic_image_value = 0x00000803;
   /* labels magic number */
-  const uint32_t magic_label_value = 0x00000801;
-  /* number of images in the dataset */
-  int number_of_images = 0;
-  /* number of labels in the dataset */
-  int number_of_labels = 0;
+  const int32_t magic_label_value = 0x00000801;
 
   /*
    * Initialize MNIST dataset from image file and labels file
@@ -75,26 +95,21 @@ struct mnist
    */
   mnist(const char* path_images, const char* path_labels)
   {
-    uint32_t magic_image,  magic_label;
-    int rows, cols;
+    int ret;
 
     /*
-     * Read images header
+     * Read and verify images header
      */
     fd_images = open(path_images, O_RDONLY);
     assert(fd_images != -1);
 
-    read(fd_images, &magic_image, sizeof(magic_image));
-    assert(endian_swap<uint32_t>(magic_image) == magic_image_value);
-
-    read(fd_images, &number_of_images, sizeof(number_of_images));
-    number_of_images = endian_swap<int>(number_of_images);
-
-    read(fd_images, &rows, sizeof(rows));
-    read(fd_images, &cols, sizeof(cols));
-    rows = endian_swap<int>(rows);
-    cols = endian_swap<int>(cols);
-    assert(rows * cols == image_size);
+    ret = read(fd_images, &images, sizeof(images));
+    assert(ret == sizeof(images));
+    assert(endian_swap<int32_t>(images.magic) == magic_image_value);
+    images.count = endian_swap<int32_t>(images.count);
+    images.num_rows = endian_swap<int32_t>(images.num_rows);
+    images.num_cols = endian_swap<int32_t>(images.num_cols);
+    assert(images.num_rows * images.num_cols == image_size);
 
     /*
      * Read labels header
@@ -102,12 +117,10 @@ struct mnist
     fd_labels = open(path_labels, O_RDONLY);
     assert(fd_labels != -1);
 
-    read(fd_labels, &magic_label, sizeof(magic_label));
-    assert(endian_swap<uint32_t>(magic_label) == magic_label_value);
-
-    read(fd_labels, &number_of_labels, sizeof(number_of_labels));
-    number_of_labels = endian_swap<int>(number_of_labels);
-    assert(number_of_images == number_of_labels);
+    read(fd_labels, &labels, sizeof(labels));
+    assert(endian_swap<int32_t>(labels.magic) == magic_label_value);
+    labels.count = endian_swap<int32_t>(labels.count);
+    assert(labels.count == images.count);
   }
 
   /*
@@ -206,8 +219,8 @@ struct mnist
         /*
          * seek to data offsets in labels and images. For offsets see start of mnist.h
          */
-        lseek(fd_images, 16, SEEK_SET);
-        lseek(fd_labels, 8, SEEK_SET);
+        lseek(fd_images, sizeof(images), SEEK_SET);
+        lseek(fd_labels, sizeof(labels), SEEK_SET);
       }
   }
 
