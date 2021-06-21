@@ -19,6 +19,8 @@ We assume:
 
 ### Forward path for input vector X of size M, and dense layer with $$M$$ inputs and $$N$$ outputs
 
+![mnist_image]({{ site.url }}/images/dotproduct.png)
+
 Dense layer output Y is:
 
 $$ Y = X * W $$
