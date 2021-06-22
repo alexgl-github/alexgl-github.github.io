@@ -110,7 +110,7 @@ $$
 
 $$
 \frac {\partial E} {\partial W} =  \frac {2} {N} (Y - \hat {Y}) \otimes X
-
+$$
 
 
 ### First, let's write Python implementation with TF2/Keras. We'll use it to validate C++ code in the consecutive section.
