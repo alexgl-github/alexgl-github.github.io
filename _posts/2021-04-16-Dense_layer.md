@@ -79,9 +79,13 @@ Lets find error gradient  $$\frac {\partial E} {\partial W}$$
 Using chain rule
 
 $$
-E = MSE(Y) \\\\\\
-Y = X * W \\\\\\
-\frac {\partial E} {\partial W} =  \frac {\partial Y} {\partial W} * \frac {\partial E} {\partial Y}
+E = MSE(Y)
+$$
+$$
+Y = X * W
+$$
+$$
+\frac {\partial E} {\partial W} =   \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial W}
 $$
 
 where
@@ -91,15 +95,18 @@ $$
 $$
 
 $$
-\frac {\partial Y} {\partial W} = X^T
+\frac {\partial Y} {\partial W} = \frac {\partial (X * W)} {\partial W} = X^T
 $$
 
 Finally
 
 $$
-\frac {\partial E} {\partial W} = X^T * \Biggl(\frac {2} {N} (Y - \hat {Y})\Biggr) \\\\\\
-\frac {\partial E} {\partial W} = X \otimes \Biggl(\frac {2} {N} (Y - \hat {Y})\Biggr)
+\frac {\partial E} {\partial W} =  \frac {2} {N} (Y - \hat {Y}) * X^T
 $$
+
+$$
+\frac {\partial E} {\partial W} =  \frac {2} {N} (Y - \hat {Y}) \otimes X
+
 
 
 ### First, let's write Python implementation with TF2/Keras. We'll use it to validate C++ code in the consecutive section.
