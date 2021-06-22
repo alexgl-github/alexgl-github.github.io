@@ -81,9 +81,13 @@ Using chain rule
 $$
 E = MSE(Y)
 $$
+
+
 $$
 Y = X * W
 $$
+
+
 $$
 \frac {\partial E} {\partial W} =   \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial W}
 $$
