@@ -1,6 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Layer
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras import backend as K
 import numpy as np
@@ -9,7 +8,7 @@ import numpy as np
 num_values = 5
 
 # Custom layer to return index of the maximum value in the array
-class Sample_Softmax(Model):
+class Sample_Softmax(Layer):
 
     def __init__(self, num_values=5, tau=1.0):
         super(Sample_Softmax, self).__init__()

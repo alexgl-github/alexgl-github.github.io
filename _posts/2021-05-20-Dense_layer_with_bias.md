@@ -46,6 +46,8 @@ y_{0} & y_{1} & \ldots & y_{N-1} \\
 \end{array} \right)
 $$
 
+![mnist_image]({{ site.url }}/images/dotprod_bias.png)
+
 $$ \hat Y $$ is expected output vector:
 
 $$ \hat Y = \left( \begin{array}{ccc}

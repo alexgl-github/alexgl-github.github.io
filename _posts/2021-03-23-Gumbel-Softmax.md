@@ -82,8 +82,7 @@ Now let's use a DNN to solve the same problem. First, similar to the python code
 
 {% highlight python %}
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Layer
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras import backend as K
 import numpy as np
@@ -92,7 +91,7 @@ import numpy as np
 num_values = 5
 
 # Custom layer to return index of distribution sample
-class Sample_Argmax(Model):
+class Sample_Argmax(Layer):
 
     def __init__(self, num_values=5):
         super(Sample_Argmax, self).__init__()
