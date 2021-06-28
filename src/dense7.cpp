@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <iterator>
+#include <variant>
 #include <random>
 #include "mnist.h"
 #include "f1.h"
@@ -40,7 +41,7 @@ constexpr auto random_uniform_initializer = []() -> float
   /*
    * Return random values in the range [-1.0, 1.0]
    */
-  return 2 * static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 1.0;
+  return 2.0 * static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 1.0;
 };
 
 /*
@@ -94,6 +95,11 @@ struct Dense
   output_vector db;
 
   /*
+   * x is for saving input to forward() call, used later in the backward() pass.
+   */
+  input_vector x;
+
+  /*
    * Default dense layer constructor
    */
   Dense(bool _use_bias=true)
@@ -129,7 +135,7 @@ struct Dense
      * Initialize dw, db
      */
     dw.resize(num_outputs);
-    reset_grads();
+    reset_gradients();
   }
 
   /*
@@ -176,8 +182,13 @@ struct Dense
    *  W - weights matrix
    *  B - bias row wector
    */
-  output_vector forward(const input_vector& x)
+  output_vector forward(const input_vector& input_x)
   {
+    /*
+     * Save the last input X
+     */
+    x = input_x;
+
     /*
      * Check for input size mismatch
      */
@@ -186,25 +197,26 @@ struct Dense
     /*
      * Layer output is dot product of input with weights
      */
-    output_vector activation;
-    transform(weights.begin(), weights.end(), bias.begin(), activation.begin(), [x, this](const input_vector& w, T bias)
+    output_vector y;
+    transform(weights.begin(), weights.end(), bias.begin(), y.begin(), [this](const input_vector& w, T bias)
               {
-                T val = inner_product(w.begin(), w.end(), x.begin(), 0.0);
+                T y_i = inner_product(w.begin(), w.end(), x.begin(), 0.0);
                 if (use_bias)
                   {
-                    val += bias;
+                    y_i += bias;
                   }
-                return val;
+                return y_i;
               }
               );
 
-    return activation;
+    return y;
   }
+
 
   /*
    * Dense layer backward pass
    */
-  input_vector backward(const input_vector& input, const output_vector grad)
+  input_vector backward(const output_vector& grad)
   {
     /*
      * Weight update according to SGD algorithm with momentum = 0.0 is:
@@ -252,10 +264,10 @@ struct Dense
      * compute dw = dw + outer(x, grad)
      */
     transform(dw.begin(), dw.end(), grad.begin(), dw.begin(),
-              [input](input_vector& left, const T& grad_i)
+              [this](input_vector& left, const T& grad_i)
               {
                 /* compute outer product for each row */
-                auto row = input;
+                auto row = x;
                 for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
 
                 /* accumulate into dw */
@@ -291,6 +303,9 @@ struct Dense
               });
 
 
+    /*
+     * compute bias = bias - learning_rate * db
+     */
     if (use_bias)
       {
         /*
@@ -303,13 +318,16 @@ struct Dense
                   });
       }
 
-    reset_grads();
+    /*
+     * Reset accumulated dw and db
+     */
+    reset_gradients();
   }
 
   /*
    * Reset weigth and bias gradient accumulators
    */
-  void reset_grads()
+  void reset_gradientss()
   {
     for (input_vector& dw_i: dw)
       {
@@ -379,38 +397,51 @@ template<size_t num_inputs, typename T = float>
 struct Sigmoid
 {
   typedef array<T, num_inputs> input_vector;
+  typedef array<T, num_inputs> output_vector;
+
+  /*
+   * x is for saving input to forward() call, used later in the backward() pass.
+   */
+  input_vector x;
 
   /*
    * Sigmoid forward pass
    */
-  static input_vector forward(const input_vector& y)
+  output_vector forward(const input_vector& input_x)
   {
-    input_vector ret;
-
-    transform(y.begin(), y.end(), ret.begin(),
+    output_vector y;
+    x = input_x;
+    transform(x.begin(), x.end(), y.begin(),
               [](const T& yi)
               {
                 T out = 1.0  / (1.0 + expf(-yi));
                 return out;
               });
-    return ret;
+    return y;
   }
 
   /*
    * Sigmoid backward pass
    */
-  static input_vector backward(const input_vector& x, const input_vector grad)
+  input_vector backward(const output_vector grad)
   {
-    input_vector ret;
+    input_vector grad_output;
 
-    const input_vector y = forward(x);
-    transform(y.begin(), y.end(), grad.begin(), ret.begin(),
+    const output_vector y = forward(x);
+    transform(y.begin(), y.end(), grad.begin(), grad_output.begin(),
               [](const T& y_i, const T& grad_i)
               {
                 T out = grad_i * y_i * (1 - y_i);
                 return out;
               });
-    return ret;
+    return grad_output;
+  }
+
+  /*
+   * No trainabele weights in Sigmoid
+   */
+  void train(float lr)
+  {
   }
 
 };
@@ -423,13 +454,24 @@ template<size_t num_inputs, typename T = float>
 struct Softmax
 {
   typedef array<T, num_inputs> input_vector;
+  typedef array<T, num_inputs> output_vector;
+
+  /*
+   * x is for saving input to forward() call, and is used in the backward() pass.
+   */
+  input_vector x;
 
   /*
    * Softmax forward function
    */
-  static input_vector forward(const input_vector& x)
+  output_vector forward(const input_vector& input_x)
   {
-    input_vector y;
+    output_vector y;
+
+    /*
+     * Save input to forward()
+     */
+    x = input_x;
 
     /*
      * compute exp(x_i) / sum(exp(x_i), i=1..N)
@@ -450,7 +492,7 @@ struct Softmax
   /*
    * Softmax backward function
    */
-  static input_vector backward(const input_vector& x, const input_vector& grad_inp)
+  input_vector backward(const output_vector& grad_inp)
   {
     input_vector grad_out;
     vector<input_vector> J;
@@ -482,6 +524,13 @@ struct Softmax
 
     return grad_out;
 
+  }
+
+  /*
+   * No trainable weights in softmax
+   */
+  void train(float lr)
+  {
   }
 
 };
@@ -540,6 +589,82 @@ struct CCE
 };
 
 
+/*
+ * Sequential class template
+ *
+ *  Creates DNN layer from template list
+ *  Implements higher level forward(), backward() and train() functions
+ */
+template<typename... T>
+struct Sequential
+{
+  /*
+   * DNN layers array
+   */
+  std::array<std::variant<T...>, sizeof...(T)> layers;
+
+  /*
+   * Sequential constructor
+   */
+  Sequential()
+  {
+    /*
+     * Create DNN layers from the template list
+     */
+    std::size_t i = 0;
+    (void(layers[i++] = T()), ...);
+  }
+
+  /*
+   * Sequential forward pass will call each layer forward() function
+   */
+  template<size_t index=sizeof...(T)-1, typename Tn>
+  auto forward(Tn& x)
+  {
+    if constexpr(index == 0)
+       {
+         return std::get<index>(layers[index]).forward(x);
+       }
+    else
+      {
+        auto y_prev = forward<index-1>(x);
+        return std::get<index>(layers[index]).forward(y_prev);
+      }
+  }
+
+
+  /*
+   * Sequential backward pass will call each layer backward() function
+   */
+  template<size_t index=0, typename Tn>
+  auto backward(Tn& dy)
+  {
+    if constexpr(index == sizeof...(T)-1)
+       {
+         return std::get<index>(layers[index]).backward(dy);
+       }
+    else
+      {
+        auto dy_prev = backward<index+1>(dy);
+        return std::get<index>(layers[index]).backward(dy_prev);
+      }
+  }
+
+  /*
+   * Sequential class train() invokes each layer train() function
+   */
+  void train(float learning_rate)
+  {
+    [this, learning_rate]<std::size_t... I> (std::index_sequence<I...>)
+      {
+        (void(std::get<I>(layers[I]).train(learning_rate)), ...);
+      }(std::make_index_sequence <sizeof...(T)>());
+  }
+};
+
+/*
+ * DNN train and validation loops are implemented in the main() function.
+ */
 int main(void)
 {
   /*
@@ -570,7 +695,7 @@ int main(void)
   /*
    * Print report every 20000 iterations
    */
-  const int report_interval = 20000;
+  const int report_interval = 30000;
 
   /*
    * Storage for next image and label
@@ -606,10 +731,8 @@ int main(void)
   /*
    * Create DNN layers and the loss
    */
-  Dense<image_size, 128> dense1;
-  Sigmoid<128> sigmoid1;
-  Dense<128, num_classes> dense2;
-  Softmax<num_classes> softmax;
+  Sequential<Dense<image_size, 128>, Sigmoid<128>, Dense<128, num_classes>, Softmax<num_classes>> net;
+
   CCE<num_classes> loss_fn;
   f1<num_classes, float> f1_train;
   f1<num_classes, float> f1_validation;
@@ -654,10 +777,7 @@ int main(void)
               /*
                * Compute Dense layer output y for input x
                */
-              auto y1 = dense1.forward(image);
-              auto y2 = sigmoid1.forward(y1);
-              auto y3 = dense2.forward(y2);
-              auto y4 = softmax.forward(y3);
+              auto y4 = net.forward(image);
               auto loss = loss_fn.forward(label, y4);
 
               /*
@@ -669,10 +789,7 @@ int main(void)
                * Back propagate loss
                */
               auto dloss_dy4 = loss_fn.backward(label, y4);
-              auto dy4_dy3 = softmax.backward(y3, dloss_dy4);
-              auto dy3_dy2 = dense2.backward(y2, dy4_dy3);
-              auto dy2_dy1 = sigmoid1.backward(y1, dy3_dy2);
-              dense1.backward(image, dy2_dy1);
+              net.backward(dloss_dy4);
 
               /*
                * Accumulate loss for reporting
@@ -683,16 +800,14 @@ int main(void)
           /*
            * Update dense layers weights once per batch
            */
-          dense2.train(learning_rate);
-          dense1.train(learning_rate);
-
+          net.train(learning_rate);
           /*
            * Print loss and accuracy per each reporting interval
            */
           if (epoch == 0 && iter == 0)
             {
               printf("epoch=%d/%d iteration=%d/%d loss=%.5f f1=%.5f\n",
-                     epoch,
+                     epoch+1,
                      num_epochs,
                      (iter+1), iterations/batch_size,
                      loss_epoch / ((iter + 1)*batch_size),
@@ -701,7 +816,7 @@ int main(void)
           if ( (((iter+1) * batch_size) % report_interval) == 0)
             {
               printf("epoch=%d/%d iteration=%d/%d loss=%.5f f1=%.5f\n",
-                     epoch,
+                     epoch+1,
                      num_epochs,
                      (iter+1), iterations/batch_size,
                      loss_epoch / ((iter + 1)*batch_size),
@@ -724,7 +839,7 @@ int main(void)
        * Print epoch stats
        */
       printf("epoch %d/%d time/epoch=%.5f sec; time left=%.4f hr; avg loss=%.5f; f1=%.5f\n",
-             epoch,
+             epoch+1,
              num_epochs,
              dt, dt * (num_epochs - epoch - 1) / (60*60),
              loss_epoch,
@@ -755,10 +870,7 @@ int main(void)
           /*
            * Forward path
            */
-          auto y1 = dense1.forward(image);
-          auto y2 = sigmoid1.forward(y1);
-          auto y3 = dense2.forward(y2);
-          auto y4 = softmax.forward(y3);
+          auto y4 = net.forward(image);
           auto loss = loss_fn.forward(label, y4);
 
           /*
@@ -773,7 +885,7 @@ int main(void)
        */
       loss_validation = loss_validation / validation_dataset.images.count;
       printf("epoch %d/%d validation loss: %f  f1: %.5f\n",
-             epoch, num_epochs, loss_validation, f1_validation.score());
+             epoch+1, num_epochs, loss_validation, f1_validation.score());
     }
 
   return 0;
