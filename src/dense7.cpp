@@ -327,7 +327,7 @@ struct Dense
   /*
    * Reset weigth and bias gradient accumulators
    */
-  void reset_gradientss()
+  void reset_gradients()
   {
     for (input_vector& dw_i: dw)
       {
