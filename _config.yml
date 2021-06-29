@@ -6,8 +6,7 @@
 name: Deep learning from scratch using C++ and Python
 
 # Short bio or description (displayed in the header)
-description:
-Deep learning, DNN, backpropagation, C++, Python
+description: Deep learning, DNN, backpropagation, C++, Python
 
 sass:
   style: :compressed
