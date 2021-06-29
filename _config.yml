@@ -3,13 +3,14 @@
 #
 
 # Name of your site (displayed in the header)
-name: Deep learning, DNN, C++, Python
+name: Deep learning from scratch using C++ and Python
 
 # Short bio or description (displayed in the header)
 description:
+Deep learning, DNN, backpropagation, C++, Python
 
 sass:
-  style: :compressed # You might prefer to minify using :compressed
+  style: :compressed
 
 # Use the following plug-ins
 gems:
@@ -25,3 +26,7 @@ exclude:
   - CNAME
 
 theme: minima
+
+url: "https://alexgl-github.github.io"
+plugins:
+  - jekyll-sitemap
