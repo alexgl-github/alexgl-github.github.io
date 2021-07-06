@@ -1,13 +1,8 @@
-#
-# This file contains configuration flags to customize your site
-#
-
-# Name of your site (displayed in the header)
 title: Deep learning models from scratch using C++ and Python
 name: Deep learning models from scratch using C++ and Python
-description: >- # this means to ignore newlines until "baseurl:"
-  Implementing deep learning models in C++ and Python from scratch.
-baseurl: "" # the subpath of your site, e.g. /blog
+description: >-
+  Implementing deep learning models in C++ and Python.
+baseurl: ""
 url: "https://alexgl-github.github.io"
 theme: minima
 github_username:  alexgl-github
