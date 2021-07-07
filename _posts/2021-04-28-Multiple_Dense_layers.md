@@ -8,14 +8,17 @@ categories: github jekyll
 
 ### Two layer NN with backpropagation in C++
 
-I'll implement a two layer neural-network in C++.
+Now let's implement a two layer neural-network in C++.
 
-As a staring point we'll use source code from ["DNN with backpropagation in C++"] [previous_post]
+As a staring point we'll use source code from ["DNN with backpropagation in C++", part 1] [previous_post]
 
 Again, to keep it simple we'll assume:
 - there's no bias in the dense layers;
 - there's no non-linear activation;
 - loss function is Mean Squared Error.
+
+
+![twolayer]({{ site.url }}/images/twolayer.png)
 
 
 ### Forward path for input vector X of size M, and 2 layer neural net with $$M$$ inputs and $$N$$ outputs
@@ -50,7 +53,7 @@ $$ \hat Y = \left( \begin{array}{ccc}
 \end{array} \right)
 $$
 
-And Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
+### Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
 
 $$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
 
@@ -96,12 +99,9 @@ $$
 $$
 
 
-Finally:
+### Finally, the weight updates are:
 
 $$ \frac {\partial E} {\partial W_{1}} = \frac {2 * (Y - \hat {Y})} {N} * W_{2}^T * X^T $$
-
-in C++ implementation we'll compute $$\frac {2 * (Y - \hat {Y})} {N} * W_{2}^T$$ as output of backward() function of the dense layer.
-This will allow us to feed backward() output of a layer as input to backward() function for the previous layer.
 
 
 ### First, let's write Python implementation with TF2. We'll use it to validate C++ code in the consecutive section.
@@ -260,7 +260,17 @@ updated weights=
 {% endhighlight %}
 
 
-Let's code the same example in C++
+### Let's code the same example in C++
+
+in C++ implementation we'll compute
+
+$$
+\frac {2 * (Y - \hat {Y})} {N} * W_{2}^T
+$$
+
+as output of backward() function of the dense layer.
+
+This will allow us to feed backward() output of a layer as input to backward() function for the previous layer.
 
 We'll implement it using C++ STL.
 Chrono headers are included for clocks used to benchmark run time.

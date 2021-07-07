@@ -8,10 +8,12 @@ categories: github jekyll
 
 ### Dense layer with backpropagation in C++
 
-Let's code a simple one layer DNN in C++.
-The network should support forward and back propagation.
+Let's code a DNN in C++.
 Initially we'll try to keep it as simple as possible.
-We assume:
+The network will consist of a single fully connected Dense layer.
+It should support forward and back propagation.
+We
+assume:
 - there's no bias in the dense layer;
 - there's no non-linear activation;
 - loss function is Mean Squared Error.
@@ -57,7 +59,7 @@ $$ \hat Y = \left( \begin{array}{ccc}
 \end{array} \right)
 $$
 
-And Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
+###  Mean Squared Error (MSE) loss between predicted output $$ Y $$ and expected output $$ \hat Y $$
 
 $$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
 
@@ -66,7 +68,7 @@ $$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
 ### Error backpropagation.
 
 For input $$X$$, we want to minimize the MSE difference between out network output and expected output,
-by adjusting dense layer weights by $$\frac {\partial E} {\partial W}$$
+by adjusting dense layer weights by error gradient $$\frac {\partial E} {\partial W}$$
 
 $$ W_{t+1} = W_{t} - \alpha * \frac {\partial E} {\partial W} $$
 
