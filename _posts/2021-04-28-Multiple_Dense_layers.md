@@ -18,10 +18,10 @@ Again, to keep it simple we'll assume:
 - loss function is Mean Squared Error.
 
 
-![twolayer]({{ site.url }}/images/twolayer.png)
-
 
 ### Forward path for input vector X of size M, and 2 layer neural net with $$M$$ inputs and $$N$$ outputs
+
+![twolayer]({{ site.url }}/images/twolayer.png)
 
 Two layer neural net output $$Y$$ is:
 
