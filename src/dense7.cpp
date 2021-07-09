@@ -67,7 +67,7 @@ struct Dense
    * dense layer weights matrix W, used in y = X * W
    * weights are transposed to speed up forward() computation
    */
-  vector<input_vector> weights;
+  std::array<input_vector, num_outputs> weights;
 
   /*
    * bias vector
@@ -82,12 +82,12 @@ struct Dense
   /*
    * Matrix of transposed weights W pointers, used to speed up backward() path
    */
-  vector<array<T*, num_outputs>> weights_transposed;
+  std::array<array<T*, num_outputs>, num_inputs> weights_transposed;
 
   /*
    * dw is accumulating weight updates in backward() pass.
    */
-  vector<input_vector> dw;
+  std::array<input_vector, num_outputs> dw;
 
   /*
    * db is accumulating bias updates in backward() pass.
@@ -107,7 +107,6 @@ struct Dense
     /*
      * Create num_outputs x num_inputs weights matrix
      */
-    weights.resize(num_outputs);
     for (input_vector& w: weights)
       {
         generate(w.begin(), w.end(), *weights_initializer);
@@ -116,7 +115,7 @@ struct Dense
     /*
      * Ctreate transposed array of weighst pointers
      */
-    weights_transposed.resize(num_inputs);
+    //weights_transposed.resize(num_inputs);
     for (size_t i = 0; i < num_inputs; i++)
       {
         for (size_t j = 0; j < num_outputs; j++)
@@ -134,7 +133,6 @@ struct Dense
     /*
      * Initialize dw, db
      */
-    dw.resize(num_outputs);
     reset_gradients();
   }
 
@@ -274,7 +272,6 @@ struct Dense
                 std::transform (left.begin(), left.end(), row.begin(), left.begin(), std::plus<T>());
                 return left;
               });
-
     /*
      * accumulate bias updates
      */
@@ -301,7 +298,6 @@ struct Dense
                           });
                 return left;
               });
-
 
     /*
      * compute bias = bias - learning_rate * db
@@ -331,11 +327,10 @@ struct Dense
   {
     for (input_vector& dw_i: dw)
       {
-        generate(dw_i.begin(), dw_i.end(), const_initializer<const_zero>);
+        std::fill(std::begin(dw_i), std::end(dw_i), 0.0);
       }
-    generate(db.begin(), db.end(), const_initializer<const_zero>);
+    std::fill(std::begin(db), std::end(db), 0.0);
   }
-
   /*
    * Helper function to convert Dense layer to string
    * Used for printing the layer weights and biases
@@ -706,7 +701,7 @@ int main(void)
   /*
    * Training learning rate and batch size
    */
-  float learning_rate = 0.01;
+  float learning_rate = 0.001;
   int batch_size = 100;
 
   /*
