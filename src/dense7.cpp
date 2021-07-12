@@ -594,7 +594,7 @@ template<typename... T>
 struct Sequential
 {
   /*
-   * DNN layers array
+   * layers array hosld DN layer objects
    */
   std::array<std::variant<T...>, sizeof...(T)> layers;
 
@@ -606,8 +606,11 @@ struct Sequential
     /*
      * Create DNN layers from the template list
      */
-    std::size_t i = 0;
-    (void(layers[i++] = T()), ...);
+    auto create_layers = [this]<std::size_t... I>(std::index_sequence<I...>)
+      {
+        (void(layers[I].template emplace<I>(T())),...);
+      };
+    create_layers(std::make_index_sequence <sizeof...(T)>());
   }
 
   /*
@@ -622,8 +625,8 @@ struct Sequential
        }
     else
       {
-        auto y_prev = forward<index-1>(x);
-        return std::get<index>(layers[index]).forward(y_prev);
+	auto y_prev = forward<index-1>(x);
+	return std::get<index>(layers[index]).forward(y_prev);
       }
   }
 
@@ -640,8 +643,8 @@ struct Sequential
        }
     else
       {
-        auto dy_prev = backward<index+1>(dy);
-        return std::get<index>(layers[index]).backward(dy_prev);
+	auto dy_prev = backward<index+1>(dy);
+	return std::get<index>(layers[index]).backward(dy_prev);
       }
   }
 
@@ -652,7 +655,7 @@ struct Sequential
   {
     [this, learning_rate]<std::size_t... I> (std::index_sequence<I...>)
       {
-        (void(std::get<I>(layers[I]).train(learning_rate)), ...);
+	(void(std::get<I>(layers[I]).train(learning_rate)), ...);
       }(std::make_index_sequence <sizeof...(T)>());
   }
 };
