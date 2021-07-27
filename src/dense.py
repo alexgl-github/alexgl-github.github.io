@@ -58,9 +58,6 @@ print(f"loss={loss}")
 # print loss gradients
 print(f"dloss_dy={dloss_dy[0].numpy()}")
 
-# print weight gradients d_loss/d_w
-print(f"grad=\n{grad[0].numpy()}")
-
 # print updated dense layer weights
-print(f"vars=\n{model.trainable_variables[0].numpy()}")
+print(f"dense layer weights=\n{model.trainable_variables[0].numpy()}")
 

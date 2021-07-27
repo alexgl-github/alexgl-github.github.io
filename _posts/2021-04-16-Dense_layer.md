@@ -466,11 +466,11 @@ template<size_t num_inputs, typename T = float>
 struct MSE
 {
   /*
-   * Forward pass computes MSE loss for inputs yhat (label) and y (predicted)
+   * Forward pass computes MSE loss for inputs y (label) and yhat (predicted)
    */
-  static T forward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
+  static T forward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
   {
-    T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
+    T loss = transform_reduce(y.begin(), y.end(), yhat.begin(), 0.0, plus<T>(),
                               [](const T& left, const T& right)
                               {
                                 return (left - right) * (left - right);
@@ -490,7 +490,7 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& yhat, cost array<T, num_inputs>& y)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
   {
     array<T, num_inputs> de_dy;
 
@@ -532,12 +532,12 @@ int main(void)
   /*
    * Compute Dense layer output y for input x
    */
-  auto y = dense.forward(x);
+  auto yhat = dense.forward(x);
 
   /*
    * Copute MSE loss for output y and expected y_true
    */
-  auto loss = mse_loss.forward(y_true, y);
+  auto loss = mse_loss.forward(y_true, yhat);
 
   /*
    * Run inference 1000 times and benchmark dense layer latency
@@ -558,7 +558,7 @@ int main(void)
    * Print DNN output y
    */
   printf("outut y=");
-  for_each(y.begin(), y.end(), print_fn);
+  for_each(yhat.begin(), yhat.end(), print_fn);
   printf("\n");
 
   /*
@@ -576,7 +576,7 @@ int main(void)
   /*
    * Compute dloss/dy gradients
    */
-  auto dloss_dy = mse_loss.backward(y_true, y);
+  auto dloss_dy = mse_loss.backward(y_true, yhat);
 
   /*
    * Back propagate loss
@@ -600,7 +600,8 @@ int main(void)
    */
   printf("time dt=%f usec\n", dt_us);
 
-return 0;
+  return 0;
+
 }
 
 {% endhighlight %}
@@ -610,7 +611,6 @@ return 0;
 
 {% highlight bash %}
 
-$ g++ -o dense -std=c++2a dense.cpp && ./dense
 input x=2.00000 0.50000 1.00000
 outut y=3.50000 3.50000
 expected outut y=1.50000 1.00000
@@ -620,7 +620,7 @@ updated dense layer weights:
 -3.000000 -4.000000
 0.000000 -0.250000
 -1.000000 -1.500000
-time dt=0.113000 usec
+time dt=0.093000 usec
 
 {% endhighlight %}
 
