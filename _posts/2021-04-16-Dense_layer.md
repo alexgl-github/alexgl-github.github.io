@@ -45,14 +45,14 @@ w_{M-1,0} & w_{M-1,1} & \ldots & w_{M-1,N-1} \\
 \end{array} \right)
 $$
 
-$$Y$$ is output vector:
+$$Y$$ is expcted output vector:
 
 $$ Y = \left( \begin{array}{ccc}
 y_{0} & y_{1} & \ldots & y_{N-1} \\
 \end{array} \right)
 $$
 
-$$ \hat Y $$ is expected output vector:
+$$ \hat Y $$ is predicted output vector:
 
 $$ \hat Y = \left( \begin{array}{ccc}
 \hat y_{0} & \hat y_{1} & \ldots & \hat y_{N-1} \\
@@ -61,7 +61,7 @@ $$
 
 ###  Mean Squared Error (MSE) loss between predicted output $$ Y $$ and expected output $$ \hat Y $$
 
-$$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
+$$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( Y_{i} - \hat Y_{i} )^2 $$
 
 
 
@@ -97,7 +97,7 @@ $$
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2} {N} (Y - \hat {Y})
+\frac {\partial E} {\partial Y} = \frac {2} {N} ( \hat {Y} - Y )
 $$
 
 $$
@@ -107,11 +107,11 @@ $$
 Finally
 
 $$
-\frac {\partial E} {\partial W} =  \frac {2} {N} (Y - \hat {Y}) * X^T
+\frac {\partial E} {\partial W} =  \frac {2} {N} ( \hat {Y} - Y ) * X^T
 $$
 
 $$
-\frac {\partial E} {\partial W} =  \frac {2} {N} (Y - \hat {Y}) \otimes X
+\frac {\partial E} {\partial W} =  \frac {2} {N} ( \hat {Y} - Y ) \otimes X
 $$
 
 

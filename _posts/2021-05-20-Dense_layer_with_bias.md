@@ -39,7 +39,7 @@ $$W_{2}$$ are weights for dense layer 2
 
 $$B_{2}$$ is bias vector for dense layer 2
 
-$$Y$$ is output of neural net:
+$$Y$$ is expected output of neural net:
 
 $$ Y = \left( \begin{array}{ccc}
 y_{0} & y_{1} & \ldots & y_{N-1} \\
@@ -48,7 +48,7 @@ $$
 
 ![mnist_image]({{ site.url }}/images/dotprod_bias.png)
 
-$$ \hat Y $$ is expected output vector:
+$$ \hat Y $$ is predicted output vector:
 
 $$ \hat Y = \left( \begin{array}{ccc}
 \hat y_{0} & \hat y_{1} & \ldots & \hat y_{N-1} \\
@@ -59,7 +59,7 @@ And Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat
 
 Los function has not changed from the previos example.
 
-$$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
+$$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( Y_{i} - \hat Y_{i} )^2 $$
 
 
 ### Error backpropagation.
@@ -86,7 +86,7 @@ $$ \frac {\partial E} {\partial B_{2}} =  \frac {\partial E} {\partial Y} * \fra
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2 * (Y - \hat {Y})} {N}
+\frac {\partial E} {\partial Y} = \frac {2 * ( \hat {Y} - Y )} {N}
 $$
 
 $$
@@ -95,7 +95,7 @@ $$
 
 Finally, layer 2 bias update is
 
-$$ \frac {\partial E} {\partial B_{2}} = \frac {2 * (Y - \hat {Y})} {N} $$
+$$ \frac {\partial E} {\partial B_{2}} = \frac {2 * ( \hat {Y} -  Y )} {N} $$
 
 
 ### Bias adjustment for the weights of dense layer 1.
@@ -111,7 +111,7 @@ $$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial Y} * \frac
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2 * (Y - \hat {Y})} {N}
+\frac {\partial E} {\partial Y} = \frac {2 * ( \hat {Y} - Y )} {N}
 $$
 
 $$
@@ -124,7 +124,7 @@ $$
 
 Finally, layer 1 bias update is
 
-$$ \frac {\partial E} {\partial B_{1}} = \frac {2 * (Y - \hat {Y})} {N} * W_{2}^T $$
+$$ \frac {\partial E} {\partial B_{1}} = \frac {2 * ( \hat {Y} - Y )} {N} * W_{2}^T $$
 
 
 
@@ -551,7 +551,7 @@ template<size_t num_inputs, typename T = float>
 struct MSE
 {
   /*
-   * Forward pass computes MSE loss for inputs yhat (label) and y (predicted)
+   * Forward pass computes MSE loss for inputs y (label) and yhat (predicted)
    */
   static T forward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
   {
@@ -603,7 +603,7 @@ int main(void)
   const int num_iterations = 1000;
 
   array<float, num_inputs> x = {2.0, 0.5};
-  array<float, num_outputs> yhat = {2.0, 1.0};
+  array<float, num_outputs> ytrue = {2.0, 1.0};
 
   /*
    * Create dense layer and MSE loss
@@ -619,9 +619,9 @@ int main(void)
   auto y2 = dense2.forward(y1);
 
   /*
-   * Copute MSE loss for output y and labe yhat
+   * Copute MSE loss for output y and label ytrue
    */
-  auto loss = mse_loss.forward(yhat, y2);
+  auto loss = mse_loss.forward(ytrue, y2);
 
   /*
    * Benchmark Dense layer inference latency
@@ -650,14 +650,14 @@ int main(void)
   printf("\n");
 
   /*
-   * Print loss for output y and label yhat
+   * Print loss for output y and label ytrue
    */
   printf("loss: %f\n", loss);
 
   /*
    * Compute dloss/dy gradients
    */
-  auto dloss_dy = mse_loss.backward(yhat, y2);
+  auto dloss_dy = mse_loss.backward(ytrue, y2);
 
   /*
    * Back propagate loss

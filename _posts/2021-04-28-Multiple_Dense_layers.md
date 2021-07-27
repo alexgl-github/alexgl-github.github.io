@@ -39,7 +39,7 @@ $$Y_{1}$$ is output of dense layer 1
 
 $$W_{2}$$ are weights for dense layer 2
 
-$$Y$$ is output of neural net:
+$$Y$$ is predicted output of neural net:
 
 $$ Y = \left( \begin{array}{ccc}
 y_{0} & y_{1} & \ldots & y_{N-1} \\
@@ -53,9 +53,9 @@ $$ \hat Y = \left( \begin{array}{ccc}
 \end{array} \right)
 $$
 
-### Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$ is
+### Mean Squared Error (MSE) loss between expected $$ Y $$ and predicted $$ \hat Y $$ is
 
-$$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i})^2 $$
+$$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i} )^2 $$
 
 
 ### Error backpropagation.
@@ -87,7 +87,7 @@ $$ \frac {\partial E} {\partial W_{1}} =  \frac {\partial E} {\partial Y} * \fra
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2 * (Y - \hat {Y})} {N}
+\frac {\partial E} {\partial Y} = \frac {2 * ( Y - \hat {Y} )} {N}
 $$
 
 $$
@@ -101,7 +101,7 @@ $$
 
 ### Finally, the weight updates are:
 
-$$ \frac {\partial E} {\partial W_{1}} = \frac {2 * (Y - \hat {Y})} {N} * W_{2}^T * X^T $$
+$$ \frac {\partial E} {\partial W_{1}} = \frac {2 * ( Y - \hat {Y} )} {N} * W_{2}^T * X^T $$
 
 
 ### First, let's write Python implementation with TF2. We'll use it to validate C++ code in the consecutive section.
@@ -265,7 +265,7 @@ updated weights=
 in C++ implementation we'll compute
 
 $$
-\frac {2 * (Y - \hat {Y})} {N} * W_{2}^T
+\frac {2 * ( Y - \hat {Y} )} {N} * W_{2}^T
 $$
 
 as output of backward() function of the dense layer.
