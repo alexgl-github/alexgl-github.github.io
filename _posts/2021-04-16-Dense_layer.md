@@ -83,22 +83,22 @@ Using chain rule
 
 
 $$
-Y = X * W
+\hat Y = X * W
 $$
 
 
 $$
-\frac {\partial E (Y) } {\partial W} =   \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial W}
+\frac {\partial E (\hat Y) } {\partial W} =   \frac {\partial E} {\partial \hat Y} * \frac {\partial \hat Y} {\partial W}
 $$
 
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2} {N} ( \hat {Y} - Y )
+\frac {\partial E} {\partial \hat Y} = \frac {2} {N} ( \hat {Y} - Y )
 $$
 
 $$
-\frac {\partial Y} {\partial W} = \frac {\partial (X * W)} {\partial W} = X^T
+\frac {\partial \hat Y} {\partial W} = \frac {\partial (X * W)} {\partial W} = X^T
 $$
 
 Finally we have equastion for weights update  $$\frac {\partial E} {\partial W}$$

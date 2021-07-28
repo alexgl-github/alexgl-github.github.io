@@ -27,7 +27,7 @@ Two layer neural net output $$Y$$ is:
 
 $$ Y_{1} = X * W_{1} $$
 
-$$ Y = Y_{1} * W_{2} $$
+$$ \hat Y = Y_{1} * W_{2} $$
 
 where
 
@@ -39,23 +39,23 @@ $$Y_{1}$$ is output of dense layer 1
 
 $$W_{2}$$ are weights for dense layer 2
 
-$$Y$$ is predicted output of neural net:
+$$Y$$ is expected (true) output of neural net:
 
 $$ Y = \left( \begin{array}{ccc}
 y_{0} & y_{1} & \ldots & y_{N-1} \\
 \end{array} \right)
 $$
 
-$$ \hat Y $$ is expected output vector:
+$$ \hat Y $$ is predicted output vector:
 
 $$ \hat Y = \left( \begin{array}{ccc}
 \hat y_{0} & \hat y_{1} & \ldots & \hat y_{N-1} \\
 \end{array} \right)
 $$
 
-### Mean Squared Error (MSE) loss between expected $$ Y $$ and predicted $$ \hat Y $$ is
+### Mean Squared Error (MSE) loss between predicted $$ \hat Y $$ and expected $$ Y $$ is
 
-$$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( \hat Y_{i} - Y_{i} )^2 $$
+$$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( Y_{i} - \hat Y_{i} )^2 $$
 
 
 ### Error backpropagation.
@@ -74,24 +74,24 @@ Adjustment for dense layer 2 weights is going to be the same as in the previous 
 Let's find weight adjustment for the weights of dense layer 1.
 
 
-$$ Y = X * W_{1} * W_{2} $$
+$$ \hat Y = X * W_{1} * W_{2} $$
 
 Using chain rule
 
-$$ \frac {\partial E} {\partial W_{1}} =  \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial W_{1}} $$
+$$ \frac {\partial E} {\partial W_{1}} =  \frac {\partial E} {\partial \hat Y} * \frac {\partial \hat Y} {\partial W_{1}} $$
 
 or
 
-$$ \frac {\partial E} {\partial W_{1}} =  \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial Y_{1}}  * \frac {\partial Y_{1}} {\partial W_{1}}$$
+$$ \frac {\partial E} {\partial W_{1}} =  \frac {\partial E} {\partial \hat Y} * \frac {\partial \hat Y} {\partial Y_{1}}  * \frac {\partial Y_{1}} {\partial W_{1}}$$
 
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2 * ( Y - \hat {Y} )} {N}
+\frac {\partial E} {\partial \hat Y} = \frac {2 * ( \hat Y - {Y} )} {N}
 $$
 
 $$
-\frac {\partial Y} {\partial Y_{1}} = W_{2}^T
+\frac {\partial \hat Y} {\partial Y_{1}} = W_{2}^T
 $$
 
 $$
@@ -101,7 +101,7 @@ $$
 
 ### Finally, the weight updates are:
 
-$$ \frac {\partial E} {\partial W_{1}} = \frac {2 * ( Y - \hat {Y} )} {N} * W_{2}^T * X^T $$
+$$ \frac {\partial E} {\partial W_{1}} = \frac {2 * ( \hat Y - {Y} )} {N} * W_{2}^T * X^T $$
 
 
 ### First, let's write Python implementation with TF2. We'll use it to validate C++ code in the consecutive section.
@@ -454,7 +454,7 @@ struct Dense
 
 {% endhighlight %}
 
-Mean Squared Error class will need it's own forward and backward functions.
+Mean Squared Error class is the same s in the previous post
 
 
 {% highlight c++ %}
@@ -469,11 +469,11 @@ template<size_t num_inputs, typename T = float>
 struct MSE
 {
   /*
-   * Forward pass computes MSE loss for inputs yhat (label) and y (predicted)
+   * Forward pass computes MSE loss for inputs y (label) and yhat (predicted)
    */
-  static T forward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
+  static T forward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
   {
-    T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
+    T loss = transform_reduce(y.begin(), y.end(), yhat.begin(), 0.0, plus<T>(),
                               [](const T& left, const T& right)
                               {
                                 return (left - right) * (left - right);
@@ -493,7 +493,7 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& yhat, cost array<T, num_inputs>& y)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
   {
     array<T, num_inputs> de_dy;
 
@@ -514,6 +514,7 @@ Finally, in the main function, we'll declare input x and expecetd output y_true 
 Then we'll compute forward and backward passes, and print the network output and updated weights.
 
 {% highlight c++ %}
+
 int main(void)
 {
   const int num_inputs = 2;
@@ -521,7 +522,7 @@ int main(void)
   const int num_iterations = 1000;
 
   array<float, num_inputs> x = {2.0, 0.5};
-  array<float, num_outputs> yhat = {2.0, 1.0};
+  array<float, num_outputs> ytrue = {2.0, 1.0};
 
   /*
    * Create dense layer and MSE loss
@@ -539,7 +540,7 @@ int main(void)
   /*
    * Copute MSE loss for output y and labe yhat
    */
-  auto loss = mse_loss.forward(yhat, y2);
+  auto loss = mse_loss.forward(ytrue, y2);
 
   /*
    * Benchmark Dense layer inference latency
@@ -572,20 +573,20 @@ int main(void)
   printf("\n");
 
   /*
-   * Print loss for output y and label yhat
+   * Print loss for output y and label ytrue
    */
   printf("loss: %f\n", loss);
 
   /*
    * Compute dloss/dy gradients
    */
-  auto dloss_dy = mse_loss.backward(yhat, y2);
+  auto dloss_dy = mse_loss.backward(ytrue, y2);
 
   /*
    * Back propagate loss
    */
   auto bw2 = dense2.backward(y1, dloss_dy);
-  auto bw1 = dense1.backward(x, bw2);
+  dense1.backward(x, bw2);
 
   /*
    * print dloss/dy
