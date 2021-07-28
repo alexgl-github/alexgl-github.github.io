@@ -19,11 +19,11 @@ Assumptions are:
 
 ### Forward path for input vector X of size M, and 2 layer neural net with $$M$$ inputs and $$N$$ outputs
 
-Two layer neural net output $$Y$$ is:
+Two layer neural net output $$\hat Y$$ is:
 
 $$ Y_{1} = X * W_{1} + B_{1}$$
 
-$$ Y = Y_{1} * W_{2} + B_{2}$$
+$$ \hat Y = Y_{1} * W_{2} + B_{2}$$
 
 where
 
@@ -39,15 +39,6 @@ $$W_{2}$$ are weights for dense layer 2
 
 $$B_{2}$$ is bias vector for dense layer 2
 
-$$Y$$ is expected output of neural net:
-
-$$ Y = \left( \begin{array}{ccc}
-y_{0} & y_{1} & \ldots & y_{N-1} \\
-\end{array} \right)
-$$
-
-![mnist_image]({{ site.url }}/images/dotprod_bias.png)
-
 $$ \hat Y $$ is predicted output vector:
 
 $$ \hat Y = \left( \begin{array}{ccc}
@@ -55,11 +46,20 @@ $$ \hat Y = \left( \begin{array}{ccc}
 \end{array} \right)
 $$
 
+![mnist_image]({{ site.url }}/images/dotprod_bias.png)
+
 And Mean Squared Error (MSE) loss between predicted $$ Y $$ and expected $$ \hat Y $$
 
 Los function has not changed from the previos example.
 
 $$ E = MSE(Y, \hat Y) = \frac {1} {N} \sum_{i=0}^{N-1} ( Y_{i} - \hat Y_{i} )^2 $$
+
+Where $$Y$$ is expected output of neural net:
+
+$$ Y = \left( \begin{array}{ccc}
+y_{0} & y_{1} & \ldots & y_{N-1} \\
+\end{array} \right)
+$$
 
 
 ### Error backpropagation.
@@ -72,25 +72,25 @@ $$\frac {\partial E} {\partial W_{1}}$$, $$\frac {\partial E} {\partial B_{1}}$$
 $$\frac {\partial E} {\partial W_{2}}$$, $$\frac {\partial E} {\partial B_{2}}$$
 
 
-Weights adjustment for both layers has not changes from the previous example.
+Weights adjustment for both layers is the same as in the previous post.
 
 ### Let's find bias adjustment of dense layer 2.
 
-$$ Y = Y_{1} * W_{2} + B_{2} $$
+$$ \hat Y = Y_{1} * W_{2} + B_{2} $$
 
 Using chain rule
 
-$$ \frac {\partial E} {\partial B_{2}} =  \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial B_{2}} $$
+$$ \frac {\partial E} {\partial B_{2}} =  \frac {\partial E} {\partial \hat Y} * \frac {\partial \hat Y} {\partial B_{2}} $$
 
 
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2 * ( \hat {Y} - Y )} {N}
+\frac {\partial E} {\partial \hat Y} = \frac {2 * ( \hat {Y} - Y )} {N}
 $$
 
 $$
-\frac {\partial Y_{1}} {\partial B_{2}} = 1
+\frac {\partial \hat Y_{1}} {\partial B_{2}} = 1
 $$
 
 Finally, layer 2 bias update is
@@ -100,22 +100,22 @@ $$ \frac {\partial E} {\partial B_{2}} = \frac {2 * ( \hat {Y} -  Y )} {N} $$
 
 ### Bias adjustment for the weights of dense layer 1.
 
-$$ Y = Y_{1} * W_{2} + B_{2} $$
+$$ \hat Y = Y_{1} * W_{2} + B_{2} $$
 
 $$ Y_{1} = X * W_{1} + B_{1} $$
 
-$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial B_{1}} $$
+$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial \hat Y} * \frac {\partial \hat Y} {\partial B_{1}} $$
 
-$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial Y_{1}} * \frac {\partial Y_{1}} {\partial B_{1}} $$
+$$ \frac {\partial E} {\partial B_{1}} = \frac {\partial E} {\partial \hat Y} * \frac {\partial \hat Y} {\partial Y_{1}} * \frac {\partial Y_{1}} {\partial B_{1}} $$
 
 where
 
 $$
-\frac {\partial E} {\partial Y} = \frac {2 * ( \hat {Y} - Y )} {N}
+\frac {\partial E} {\partial \hat Y} = \frac {2 * ( \hat {Y} - Y )} {N}
 $$
 
 $$
-\frac {\partial Y} {\partial Y_{1}} = W_{2}^T
+\frac {\partial \hat Y} {\partial Y_{1}} = W_{2}^T
 $$
 
 $$
@@ -553,9 +553,9 @@ struct MSE
   /*
    * Forward pass computes MSE loss for inputs y (label) and yhat (predicted)
    */
-  static T forward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
+  static T forward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
   {
-    T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
+    T loss = transform_reduce(y.begin(), y.end(), yhat.begin(), 0.0, plus<T>(),
                               [](const T& left, const T& right)
                               {
                                 return (left - right) * (left - right);
@@ -565,7 +565,7 @@ struct MSE
   }
 
   /*
-   * Backward pass computes dloss/dy for inputs yhat (label) and y (predicted)
+   * Backward pass computes dloss/dy for inputs y (label) and yhat (predicted)
    *
    * loss = sum((yhat[i] - y[i])^2) / N
    *   i=0...N-1
@@ -575,11 +575,11 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& yhat, cost array<T, num_inputs>& y)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
   {
     array<T, num_inputs> de_dy;
 
-    transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
+    transform(y.begin(), y.end(), yhat.begin(), de_dy.begin(),
               [](const T& left, const T& right)
               {
                 return 2 * (right - left) / num_inputs;
@@ -596,6 +596,7 @@ Finally, in the main function, we'll declare input x and expecetd output y_true 
 Then we'll compute forward and backward passes, and print the network output and updated weights.
 
 {% highlight c++ %}
+
 int main(void)
 {
   const int num_inputs = 2;
@@ -663,7 +664,7 @@ int main(void)
    * Back propagate loss
    */
   auto bw2 = dense2.backward(y1, dloss_dy);
-  auto bw1 = dense1.backward(x, bw2);
+  dense1.backward(x, bw2);
 
   /*
    * print dloss/dy

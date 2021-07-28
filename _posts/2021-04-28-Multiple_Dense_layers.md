@@ -483,7 +483,7 @@ struct MSE
   }
 
   /*
-   * Backward pass computes dloss/dy for inputs yhat (label) and y (predicted)
+   * Backward pass computes dloss/dy for inputs y (label) and yhat (predicted)
    *
    * loss = sum((yhat[i] - y[i])^2) / N
    *   i=0...N-1
@@ -493,11 +493,11 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& yhat, const array<T, num_inputs>& y)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
   {
     array<T, num_inputs> de_dy;
 
-    transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
+    transform(y.begin(), y.end(), yhat.begin(), de_dy.begin(),
               [](const T& left, const T& right)
               {
                 return 2 * (right - left) / num_inputs;
@@ -509,6 +509,7 @@ struct MSE
 };
 
 {% endhighlight %}
+
 
 Finally, in the main function, we'll declare input x and expecetd output y_true arrays, containing the same values as in out Python example.
 Then we'll compute forward and backward passes, and print the network output and updated weights.

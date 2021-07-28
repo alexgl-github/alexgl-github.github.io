@@ -130,9 +130,9 @@ struct Dense
      */
     vector<output_vector> weights_transposed;
     weights_transposed.resize(num_inputs);
-    for (int i = 0; i < num_inputs; i++)
+    for (size_t i = 0; i < num_inputs; i++)
       {
-        for (int j = 0; j < num_outputs; j++)
+        for (size_t j = 0; j < num_outputs; j++)
           {
             weights_transposed[i][j] = weights[j][i];
           }
@@ -195,9 +195,9 @@ struct Dense
      * output weights
      */
     ret << "weights:" << std::endl;
-    for (int y=0; y < weights[0].size(); y++)
+    for (size_t y=0; y < weights[0].size(); y++)
       {
-        for (int x=0; x < weights.size(); x++)
+        for (size_t x=0; x < weights.size(); x++)
           {
             if (weights[x][y] >= 0)
               ret << " ";
@@ -241,16 +241,13 @@ struct Dense
 template<size_t num_inputs, typename T = float>
 struct MSE
 {
-
-  typedef array<T, num_inputs> input_vector;
-
   /*
-   * Forward pass computes MSE loss for inputs yhat (label) and y (predicted)
+   * Forward pass computes MSE loss for inputs y (label) and yhat (predicted)
    */
-  static T forward(input_vector yhat, input_vector y)
+  static T forward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
   {
-    T loss = transform_reduce(yhat.begin(), yhat.end(), y.begin(), 0.0, plus<T>(),
-                              [](T& left, T& right)
+    T loss = transform_reduce(y.begin(), y.end(), yhat.begin(), 0.0, plus<T>(),
+                              [](const T& left, const T& right)
                               {
                                 return (left - right) * (left - right);
                               }
@@ -259,7 +256,7 @@ struct MSE
   }
 
   /*
-   * Backward pass computes dloss/dy for inputs yhat (label) and y (predicted)
+   * Backward pass computes dloss/dy for inputs y (label) and yhat (predicted)
    *
    * loss = sum((yhat[i] - y[i])^2) / N
    *   i=0...N-1
@@ -269,12 +266,12 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static input_vector backward(input_vector yhat, input_vector y)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
   {
     array<T, num_inputs> de_dy;
 
-    transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
-              [](T& left, T& right)
+    transform(y.begin(), y.end(), yhat.begin(), de_dy.begin(),
+              [](const T& left, const T& right)
               {
                 return 2 * (right - left) / num_inputs;
               }
@@ -284,7 +281,6 @@ struct MSE
 
 };
 
-
 int main(void)
 {
   const int num_inputs = 2;
@@ -292,7 +288,7 @@ int main(void)
   const int num_iterations = 1000;
 
   array<float, num_inputs> x = {2.0, 0.5};
-  array<float, num_outputs> yhat = {2.0, 1.0};
+  array<float, num_outputs> ytrue = {2.0, 1.0};
 
   /*
    * Create dense layer and MSE loss
@@ -308,9 +304,9 @@ int main(void)
   auto y2 = dense2.forward(y1);
 
   /*
-   * Copute MSE loss for output y and label yhat
+   * Copute MSE loss for output y and label ytrue
    */
-  auto loss = mse_loss.forward(yhat, y2);
+  auto loss = mse_loss.forward(ytrue, y2);
 
   /*
    * Benchmark Dense layer inference latency
@@ -339,20 +335,20 @@ int main(void)
   printf("\n");
 
   /*
-   * Print loss for output y and label yhat
+   * Print loss for output y and label ytrue
    */
   printf("loss: %f\n", loss);
 
   /*
    * Compute dloss/dy gradients
    */
-  auto dloss_dy = mse_loss.backward(yhat, y2);
+  auto dloss_dy = mse_loss.backward(ytrue, y2);
 
   /*
    * Back propagate loss
    */
   auto bw2 = dense2.backward(y1, dloss_dy);
-  auto bw1 = dense1.backward(x, bw2);
+  dense1.backward(x, bw2);
 
   /*
    * print dloss/dy

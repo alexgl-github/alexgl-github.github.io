@@ -534,7 +534,7 @@ struct Softmax
  * Categorical Crossentropy loss
  *
  * Forward:
- *  E = - sum(yhat * log(y))
+ *  E = - sum(y * log(yhat))
  *
  * Parameters:
  *  num_inputs: number of inputs to loss function.
@@ -547,18 +547,16 @@ struct CCE
   typedef array<T, num_inputs> input_vector;
 
   /*
-   * Forward pass computes CCE loss for inputs yhat (label) and y (predicted)
+   * Forward pass computes CCE loss for inputs y (label) and yhat (predicted)
    */
-  static T forward(const input_vector& yhat, const input_vector& y)
+  static T forward(const input_vector& y, const input_vector& yhat)
   {
-    input_vector cce;
-    transform(yhat.begin(), yhat.end(), y.begin(), cce.begin(),
-              [](const T& yhat_i, const T& y_i)
-              {
-                return yhat_i * logf(y_i);
-              }
-              );
-    T loss = accumulate(cce.begin(), cce.end(), 0.0);
+    T loss = transform_reduce(y.begin(), y.end(), yhat.begin(), 0.0, plus<T>(),
+                              [](const T& y_i, const T& yhat_i)
+                              {
+                                return y_i * logf(yhat_i);
+                              }
+                              );
     return -1 * loss;
   }
 
@@ -568,14 +566,14 @@ struct CCE
    * dloss/dy = - yhat/y
    *
    */
-  static input_vector backward(input_vector yhat, input_vector y)
+  static input_vector backward(const input_vector& y, const input_vector& yhat)
   {
     array<T, num_inputs> de_dy;
 
-    transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
-              [](const T& yhat_i, const T& y_i)
+    transform(y.begin(), y.end(), yhat.begin(), de_dy.begin(),
+              [](const T& y_i, const T& yhat_i)
               {
-                return -1 * yhat_i / (y_i);
+                return -1 * y_i / yhat_i;
               }
               );
     return de_dy;
