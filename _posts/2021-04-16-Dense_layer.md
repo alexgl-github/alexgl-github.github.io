@@ -25,7 +25,15 @@ assume:
 
 Dense layer output Y is:
 
-$$ Y = X * W $$
+$$ \hat Y = X * W $$
+
+
+$$ \hat Y $$ is predicted output vector:
+
+$$ \hat Y = \left( \begin{array}{ccc}
+\hat y_{0} & \hat y_{1} & \ldots & \hat y_{N-1} \\
+\end{array} \right)
+$$
 
 where $$X$$ is input vector:
 
@@ -45,24 +53,17 @@ w_{M-1,0} & w_{M-1,1} & \ldots & w_{M-1,N-1} \\
 \end{array} \right)
 $$
 
-$$Y$$ is expcted output vector:
+###  Mean Squared Error (MSE) loss between predicted output $$ \hat Y $$ and expected output $$ Y $$
+
+$$ E (Y, \hat Y)  = \frac {1} {N} \sum_{i=0}^{N-1} ( Y_{i} - \hat Y_{i} )^2 $$
+
+
+$$Y$$ is expected output vector:
 
 $$ Y = \left( \begin{array}{ccc}
 y_{0} & y_{1} & \ldots & y_{N-1} \\
 \end{array} \right)
 $$
-
-$$ \hat Y $$ is predicted output vector:
-
-$$ \hat Y = \left( \begin{array}{ccc}
-\hat y_{0} & \hat y_{1} & \ldots & \hat y_{N-1} \\
-\end{array} \right)
-$$
-
-###  Mean Squared Error (MSE) loss between predicted output $$ Y $$ and expected output $$ \hat Y $$
-
-$$ E = \frac {1} {N} \sum_{i=0}^{N-1} ( Y_{i} - \hat Y_{i} )^2 $$
-
 
 
 ### Error backpropagation.
@@ -80,10 +81,6 @@ Lets find error gradient  $$\frac {\partial E} {\partial W}$$
 
 Using chain rule
 
-$$
-E = MSE(Y)
-$$
-
 
 $$
 Y = X * W
@@ -91,7 +88,7 @@ $$
 
 
 $$
-\frac {\partial E} {\partial W} =   \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial W}
+\frac {\partial E (Y) } {\partial W} =   \frac {\partial E} {\partial Y} * \frac {\partial Y} {\partial W}
 $$
 
 where
@@ -104,7 +101,7 @@ $$
 \frac {\partial Y} {\partial W} = \frac {\partial (X * W)} {\partial W} = X^T
 $$
 
-Finally
+Finally we have equastion for weights update  $$\frac {\partial E} {\partial W}$$
 
 $$
 \frac {\partial E} {\partial W} =  \frac {2} {N} ( \hat {Y} - Y ) * X^T
@@ -115,7 +112,7 @@ $$
 $$
 
 
-### First, let's write Python implementation with TF2/Keras. We'll use it to validate C++ code in the consecutive section.
+### Let's write Python implementation with TF2/Keras. We'll use it to validate C++ code in the consecutive section.
 
 
 For this experiment I've used the following software versions:
