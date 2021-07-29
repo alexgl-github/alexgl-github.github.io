@@ -335,7 +335,8 @@ Backward() function was modified from the previous example to return backpropaga
  *  T: input, output, and weights type in the dense layer
  *  initializer: weights initializer function
  */
-template<size_t num_inputs, size_t num_outputs, typename T = float, T (*initializer)()=ones_initializer>
+template<size_t num_inputs, size_t num_outputs, typename T = float,
+         T (*initializer)()=ones_initializer>
 struct Dense
 {
 
@@ -412,7 +413,8 @@ struct Dense
     transform(weights.begin(), weights.end(), dw.begin(), weights.begin(),
               [](input_vector& left, input_vector& right)
               {
-                transform(left.begin(), left.end(), right.begin(), left.begin(), minus<T>());
+                transform(left.begin(), left.end(), right.begin(),
+                          left.begin(), minus<T>());
                 return left;
               });
 
@@ -493,7 +495,8 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& y,
+                                       const array<T, num_inputs>& yhat)
   {
     array<T, num_inputs> de_dy;
 

@@ -306,7 +306,8 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& y,
+                                       const array<T, num_inputs>& yhat)
   {
     array<T, num_inputs> de_dy;
 

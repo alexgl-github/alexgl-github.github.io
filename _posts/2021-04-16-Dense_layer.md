@@ -28,6 +28,8 @@ Dense layer output Y is:
 $$ \hat Y = X * W $$
 
 
+Where:
+
 $$ \hat Y $$ is predicted output vector:
 
 $$ \hat Y = \left( \begin{array}{ccc}
@@ -35,7 +37,7 @@ $$ \hat Y = \left( \begin{array}{ccc}
 \end{array} \right)
 $$
 
-where $$X$$ is input vector:
+$$ X $$ is input vector:
 
 $$ X = \left( \begin{array}{ccc}
 x_{0} & x_{1} & \ldots & x_{M-1} \\
@@ -53,12 +55,12 @@ w_{M-1,0} & w_{M-1,1} & \ldots & w_{M-1,N-1} \\
 \end{array} \right)
 $$
 
-###  Mean Squared Error (MSE) loss between predicted output $$ \hat Y $$ and expected output $$ Y $$
+###  Mean Squared Error (MSE) loss between predicted output $$ \hat Y $$ and expected output $$ Y $$ :
 
 $$ E (Y, \hat Y)  = \frac {1} {N} \sum_{i=0}^{N-1} ( Y_{i} - \hat Y_{i} )^2 $$
 
 
-$$Y$$ is expected output vector:
+Where $$Y$$ is expected output vector:
 
 $$ Y = \left( \begin{array}{ccc}
 y_{0} & y_{1} & \ldots & y_{N-1} \\
@@ -66,7 +68,7 @@ y_{0} & y_{1} & \ldots & y_{N-1} \\
 $$
 
 
-### Error backpropagation.
+### Error backpropagation
 
 For input $$X$$, we want to minimize the MSE difference between out network output and expected output,
 by adjusting dense layer weights by error gradient $$\frac {\partial E} {\partial W}$$
@@ -96,6 +98,8 @@ where
 $$
 \frac {\partial E} {\partial \hat Y} = \frac {2} {N} ( \hat {Y} - Y )
 $$
+
+and
 
 $$
 \frac {\partial \hat Y} {\partial W} = \frac {\partial (X * W)} {\partial W} = X^T
@@ -317,7 +321,8 @@ Dense layer class template includes forward() and backward() functions.
  *  T: input, output, and weights type in the dense layer
  *  initializer: weights initializer function
  */
-template<size_t num_inputs, size_t num_outputs, typename T = float, T (*initializer)()=ones_initializer>
+template<size_t num_inputs, size_t num_outputs, typename T = float,
+         T (*initializer)()=ones_initializer>
 struct Dense
 {
 
@@ -358,7 +363,8 @@ struct Dense
      * Layer output is dot product of input with weights
      */
     array<T, num_outputs> activation;
-    transform(weights.begin(), weights.end(), activation.begin(), [x](const input_vector& w)
+    transform(weights.begin(), weights.end(), activation.begin(),
+              [x](const input_vector& w)
               {
                 T val = inner_product(x.begin(), x.end(), w.begin(), 0.0);
                 return val;
@@ -410,7 +416,10 @@ struct Dense
     transform(weights.begin(), weights.end(), dw.begin(), weights.begin(),
               [](input_vector& left, const input_vector& right)
               {
-                transform(left.begin(), left.end(), right.begin(), left.begin(), minus<T>());
+                transform(left.begin(), left.end(),
+                          right.begin(),
+                          left.begin(),
+                          minus<T>());
                 return left;
               }
               );
@@ -487,7 +496,8 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& y,
+                                       const array<T, num_inputs>& yhat)
   {
     array<T, num_inputs> de_dy;
 
