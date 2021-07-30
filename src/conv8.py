@@ -6,20 +6,17 @@ import numpy as np
 
 input_height = 10
 input_width = 10
-kernel_size = 3
+kernel_size = 5
 channels_in = 1
 channels_out = 1
 strides = 1
 # Create sequential model
 model = tf.keras.Sequential()
 
-weights = np.zeros(shape=(kernel_size, kernel_size, 1, 0))
-for channel_out in range(1, channels_out+1):
-    weights = np.concatenate((weights, np.full(shape=(kernel_size, kernel_size, 1, 1), fill_value=channel_out, dtype=np.float32)), axis = -1)
-print(f"weights= {weights.shape} {weights}")
+kernel_weights_num = kernel_size * kernel_size * channels_in * channels_out
+weights = np.reshape(np.linspace(start=1, stop=kernel_weights_num, num=kernel_weights_num), (kernel_size, kernel_size, channels_in, channels_out))
 
 biases = np.ones(shape=(channels_out,))
-print(f"biases= {biases.shape} {biases}")
 
 model.add(tf.keras.layers.Conv2D(filters=channels_out,
                                  kernel_size=kernel_size,

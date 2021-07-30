@@ -49,22 +49,6 @@ constexpr auto random_uniform_initializer = []() -> float
   return 2.0 * static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 1.0;
 };
 
-struct initializer
-{
-
-  const float value;
-
-  initializer(const float v):
-    value(v)
-  {
-  }
-
-  float operator()()
-  {
-    return value;
-  }
-
-};
 
 /*
  * Dense layer class template
@@ -734,12 +718,12 @@ struct Sequential
 /*
  *
  */
-template<std::size_t input_height,
-         std::size_t input_width,
-         std::size_t channels_in = 1,
-         std::size_t channels_out =1,
-         std::size_t kernel_size = 3,
-         std::size_t stride = 1,
+template<int input_height,
+         int input_width,
+         int channels_in = 1,
+         int channels_out =1,
+         int kernel_size = 3,
+         int stride = 1,
          int use_bias = 1,
          typename T = float,
          T (*weights_initializer)() = const_initializer<const_one>,
@@ -765,48 +749,21 @@ struct Conv2D
   conv_weights weights;
   conv_bias bias;
 
-  const size_t pad_size = kernel_size / 2;
-
-  std::function<T(const input_plane&, const conv_kernel&, int offset_y, int offset_x)> conv =
-    [](const input_plane& x, const conv_kernel& w, int offset_y, int offset_x)
-      {
-        T sum = static_cast<T>(0);
-        for (std::size_t i = 0; i < kernel_size; i++)
-          {
-            for (std::size_t j = 0; j < kernel_size; j++)
-              {
-                sum += x[offset_y + i][offset_x + j] * w[i][j];
-              }
-          }
-        return sum;
-      };
-
-  std::function<T(const input_plane&, const conv_kernel&, int, int, int, int, int, int)> conv_pad =
-    [](const input_plane& x, const conv_kernel& w, int offset_y, int offset_x,
-       int pad_top, int pad_left, int pad_bot, int pad_right)
-      {
-        T sum = static_cast<T>(0);
-        for (std::size_t i = 0; i < kernel_size - pad_top - pad_bot; i++)
-          {
-            for (std::size_t j = 0; j < kernel_size - pad_left - pad_right; j++)
-              {
-                sum += x[offset_y + i][offset_x + j] * w[i + pad_top][j + pad_left];
-              }
-          }
-        return sum;
-      };
-
+  const int pad_size = kernel_size / 2;
 
   Conv2D()
   {
-    for (std::size_t channel_out = 0; channel_out < channels_out; channel_out++)
+    for (int channel_out = 0; channel_out < channels_out; channel_out++)
       {
-        for (std::size_t channel_in = 0; channel_in < channels_in; channel_in++)
+        for (int channel_in = 0; channel_in < channels_in; channel_in++)
           {
             for (auto& weights_row: weights[channel_out][channel_in])
               {
-                initializer ini(channel_out + 1);
-                generate(weights_row.begin(), weights_row.end(), ini);
+                std::generate(weights_row.begin(), weights_row.end(),
+                              [] {
+                                static int i = 1;
+                                return i++;
+                              });
               }
           }
       }
@@ -820,69 +777,112 @@ struct Conv2D
   conv_output forward(const conv_input& x)
   {
     conv_output y;
+    int pad_left, pad_right, pad_top, pad_bot;
 
-    for (std::size_t output_channel = 0; output_channel < channels_out; output_channel++)
+    auto conv = [](const input_plane& x, const conv_kernel& w, int offset_y, int offset_x,
+                   int pad_top=0, int pad_left=0, int pad_bot=0, int pad_right=0) -> T
       {
-
-        for (std::size_t i = 0; i < pad_size; i++)
+        T sum = static_cast<T>(0);
+        for (int i = pad_top; i < kernel_size-pad_bot; i++)
           {
-            for (std::size_t j = 0; j < output_width ; j++)
+            for (int j = pad_left; j < kernel_size-pad_right; j++)
               {
-                y[output_channel][i][j] = use_bias * bias[output_channel];
+                sum += x[offset_y + i - kernel_size/2][offset_x + j - kernel_size/2] * w[i][j];
               }
           }
-        for (std::size_t i = pad_size; i < output_height; i++)
+        return sum;
+      };
+
+    for (int output_channel = 0; output_channel < channels_out; output_channel++)
+      {
+        for (int i = 0; i < output_height; i++)
           {
-            for (std::size_t j = 0; j < output_width ; j++)
-              {
-                y[output_channel][i][j] = use_bias * bias[output_channel];
-              }
-          }
+            pad_top = (i < pad_size) ? (pad_size - i) : 0;
+            pad_bot = (i > (output_height - pad_size - 1)) ? (i - (output_height - pad_size - 1)) : 0;
 
-        for (std::size_t i = pad_size; i < output_height - pad_size; i++)
-          {
-            for (std::size_t j = 0; j < pad_size; j++)
+            for (int j = 0; j < output_width; j++)
               {
+                pad_left = (j < pad_size) ? (pad_size - j) : 0;
+                pad_right = (j > (output_width - pad_size - 1)) ? (j - (output_width - pad_size - 1)) : 0;
+
                 y[output_channel][i][j] = use_bias * bias[output_channel];
-                for (std::size_t input_channel = 0; input_channel < channels_in; input_channel++)
+
+                for (int input_channel = 0; input_channel < channels_in; input_channel++)
                   {
-                    y[output_channel][i][j] += conv_pad(x[input_channel], weights[output_channel][input_channel], i, j,
-                                                        /* pad_top */ 0, /* pad_left */ pad_size-j, /* pad_bot */ 0, /* pad_rght */ 0);
+                    y[output_channel][i][j] += conv(x[input_channel], weights[output_channel][input_channel], i, j,
+                                                    pad_top, pad_left, pad_bot, pad_right);
                   }
-              }
-
-            for (std::size_t j = output_width - pad_size; j < output_width; j++)
-              {
-                y[output_channel][i][j] = use_bias * bias[output_channel];
-                for (std::size_t input_channel = 0; input_channel < channels_in; input_channel++)
-                  {
-                    y[output_channel][i][j] += conv_pad(x[input_channel], weights[output_channel][input_channel], i, j,
-                                                        /* pad_top */ 0, /* pad_left */ 0, /* pad_bot */ 0, /* pad_right */ output_width-j);
-                  }
-              }
-
-            for (std::size_t j = pad_size; j < output_width - pad_size; j++)
-              {
-
-                y[output_channel][i][j] = use_bias * bias[output_channel];
-
-                for (std::size_t input_channel = 0; input_channel < channels_in; input_channel++)
-                  {
-                     y[output_channel][i][j] += conv(x[input_channel], weights[output_channel][input_channel], i, j);
-                  }
-
               }
           }
       }
-
     return y;
   }
+
 
   conv_input backward(const conv_input& x,  const conv_output& grad)
   {
     conv_input grad_out;
     return grad_out;
   }
+
+    /*
+   * Helper function to convert Dense layer to string
+   * Used for printing the layer weights and biases
+   */
+  operator std::string() const
+  {
+    std::ostringstream ret;
+    ret.precision(7);
+
+    /*
+     * output weights
+     */
+    ret << "weights:" << std::endl;
+
+    for (int output_channel = 0; output_channel < channels_out; output_channel++)
+      {
+        for (int input_channel = 0; input_channel < channels_in; input_channel++)
+          {
+            for (int y=0; y < kernel_size; y++)
+              {
+                for (int x=0; x < kernel_size; x++)
+                  {
+                    if (weights[output_channel][input_channel][y][x] >= 0)
+                      ret << " ";
+                    ret << std::fixed << weights[output_channel][input_channel][y][x] << " ";
+                  }
+                ret << std::endl;
+              }
+          }
+      }
+
+    if (use_bias)
+      {
+        /*
+         * output biases
+         */
+        ret << "bias:" << std::endl;
+        for (auto b: bias)
+          {
+            if (b >= 0)
+              ret << " ";
+            ret << std::fixed << b << " ";
+          }
+        ret << std::endl;
+      }
+
+    return ret.str();
+  }
+
+  /*
+   * Helper function to cout Dense layer object
+   */
+  friend ostream& operator<<(ostream& os, const Conv2D& conv)
+  {
+    os << (string)conv;
+    return os;
+  }
+
 
 };
 
@@ -928,7 +928,7 @@ int main(void)
   const int input_width = 10;
   const int channels_in = 1;
   const int channels_out = 1;
-  const int kernel_size = 3;
+  const int kernel_size = 5;
   std::array<std::array<std::array<float, input_width>, input_height>, channels_in> x = {};
 
   for (auto channel_in = 0; channel_in < channels_in; channel_in++)
@@ -960,6 +960,8 @@ int main(void)
              printf("\n");
            });
   printf("\n");
+
+  printf("updated dense layer weights:\n%s", ((std::string)conv).c_str());
 
 
   printf("output y=\n");
