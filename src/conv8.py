@@ -34,7 +34,7 @@ loss_fn = tf.keras.losses.MeanSquaredError()
 x = np.ones(shape=(input_height, input_width, 1))
 
 # Expected output
-y_true = np.zeros(shape=(1, input_height, input_width, channels_out))
+y_true = np.ones(shape=(1, input_height, input_width, channels_out))
 
 # SGD update rule for parameter w with gradient g when momentum is 0:
 # w = w - learning_rate * g

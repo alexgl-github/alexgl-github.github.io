@@ -939,13 +939,18 @@ int main(void)
         }
     }
 
+  std::array<float, input_height * input_width * channels_out>  y_true;
+  y_true.fill(1.0);
+
   /*
    * Create DNN layers and the loss
    */
   Conv2D<input_height, input_width, channels_in, channels_out, kernel_size> conv;
   Flatten<input_height, input_width, channels_out> flatten;
+  MSE<input_height * input_width * channels_out> loss_fn;
   auto y1 = conv.forward(x);
   auto y2 = flatten.forward(y1);
+  auto loss = loss_fn.forward(y_true, y2);
 
   printf("input x=\n");
   for_each(x.begin(), x.end(),
@@ -961,8 +966,7 @@ int main(void)
            });
   printf("\n");
 
-  printf("updated dense layer weights:\n%s", ((std::string)conv).c_str());
-
+  printf("dense layer weights:\n%s", ((std::string)conv).c_str());
 
   printf("output y=\n");
   for_each(y1.begin(), y1.end(),
@@ -981,6 +985,12 @@ int main(void)
   printf("output y flat=\n");
   for_each(y2.begin(), y2.end(), print_fn);
   printf("\n");
+
+  printf("expected output y=\n");
+  for_each(y_true.begin(), y_true.end(), print_fn);
+  printf("\n");
+
+  printf("loss=%.5f\n", loss);
 
   return 0;
 }
