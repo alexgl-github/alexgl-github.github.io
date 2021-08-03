@@ -6,7 +6,7 @@ import numpy as np
 
 input_height = 10
 input_width = 10
-kernel_size = 5
+kernel_size = 3
 channels_in = 1
 channels_out = 1
 strides = 1
@@ -31,7 +31,7 @@ model.add(tf.keras.layers.Conv2D(filters=channels_out,
 loss_fn = tf.keras.losses.MeanSquaredError()
 
 # Arbitrary model input
-x = np.ones(shape=(input_height, input_width, 1))
+x = np.reshape(np.linspace(start=1, stop=input_height * input_width, num=input_height * input_width), (input_height, input_width, 1))
 
 # Expected output
 y_true = np.ones(shape=(1, input_height, input_width, channels_out))
