@@ -818,27 +818,31 @@ struct Conv2D
     return y;
   }
 
-  T conv1(T a, size_t* offset, size_t* pad, T b)
-  {
-    //printf("a=%f b=%f\n", a, b);
-    return a * b;
-  }
-
-  //T conv1(input_row& a, size_t* offset, size_t* pad, array<T, kernel_size> b)
+  //T conv1(T a, size_t* offset, size_t* pad, T b)
   //{
-  //  T val = inner_product(a.begin() + (*offset), a.begin() + kernel_size - pad[1], b.begin() + pad[0], 0.0);
-  //  return val;
+    //printf("a=%f b=%f\n", a, b);
+  //  return a * b;
   //}
+
+  template<typename L>
+  T conv1(L a, size_t* offset, size_t* pad, array<T, kernel_size> b)
+  {
+    //printf("N=1 offset=%ld pad=%ld %ld\n", offset[0], pad[0], pad[1]);
+    T val = inner_product(b.begin() + pad[0], b.begin() + kernel_size - pad[1], a.begin() + offset[0] + pad[0], 0.0);
+    //printf("N=1 offset=%ld pad=%ld %ld sum=%f\n", offset[0], pad[0], pad[1], val);
+    return val;
+  }
 
   template<typename L, typename P, size_t N>
   T conv1(L a, size_t* offset, size_t* pad, std::array<P, N> b)
   {
     T sum = 0;
+    //printf("+ N=%ld offset=%ld pad=%ld\n", N, offset[0], pad[0]);
     for (size_t i = pad[0]; i < N - pad[1]; i++)
       {
         sum += conv1(a[i + *offset], offset+1, pad+2, b[i]);
       }
-    printf("N=%ld offset=%ld pad=%ld sum=%f\n", N, offset[0], pad[0], sum);
+    //printf("- N=%ld offset=%ld pad=%ld sum=%f\n", N, offset[0], pad[0], sum);
     return sum;
   }
 
@@ -850,13 +854,12 @@ struct Conv2D
       {
         for (size_t i = 0; i < output_height; i++)
           {
+            size_t pad_top = (i < pad_size) ? (pad_size - i) : 0;
+            size_t pad_bot = (i > (output_height - pad_size - 1)) ? (i - (output_height - pad_size - 1)) : 0;
+
             for (size_t j = 0; j < output_width; j++)
               {
-
                 y[output_channel][i][j] = use_bias * bias[output_channel];
-
-                size_t pad_top = (i < pad_size) ? (pad_size - i) : 0;
-                size_t pad_bot = (i > (output_height - pad_size - 1)) ? (i - (output_height - pad_size - 1)) : 0;
 
                 size_t pad_left = (j < pad_size) ? (pad_size - j) : 0;
                 size_t pad_right = (j > (output_width - pad_size - 1)) ? (j - (output_width - pad_size - 1)) : 0;
@@ -864,12 +867,7 @@ struct Conv2D
                 size_t offset[] = {0, i-pad_size, j-pad_size};
                 size_t pad[] = {0,0, pad_top, pad_bot, pad_left, pad_right};
 
-                for (int input_channel = 0; input_channel < channels_in; input_channel++)
-                  {
-                    y[output_channel][i][j] += conv1(x, offset, pad, weights[output_channel]);
-                    printf("\n");
-                  }
-                printf("i=%ld j=%ld val=%f---------------\n", i, j, y[output_channel][i][j]);
+                y[output_channel][i][j] += conv1(x, offset, pad, weights[output_channel]);
               }
           }
       }
