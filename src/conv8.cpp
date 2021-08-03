@@ -749,10 +749,11 @@ struct Conv2D
   conv_weights weights;
   conv_bias bias;
 
-  const size_t pad_size = kernel_size / 2;
+  static const size_t pad_size = kernel_size / 2;
 
   Conv2D()
   {
+    static int i = 1;
     for (int channel_out = 0; channel_out < channels_out; channel_out++)
       {
         for (int channel_in = 0; channel_in < channels_in; channel_in++)
@@ -761,7 +762,6 @@ struct Conv2D
               {
                 std::generate(weights_row.begin(), weights_row.end(),
                               [] {
-                                static int i = 1;
                                 return i++;
                               });
               }
@@ -777,101 +777,47 @@ struct Conv2D
   conv_output forward(const conv_input& x)
   {
     conv_output y;
-    int pad_left, pad_right, pad_top, pad_bot;
 
-    auto conv = [](const input_plane& x, const conv_kernel& w, int offset_y, int offset_x,
-                   int pad_top=0, int pad_left=0, int pad_bot=0, int pad_right=0) -> T
+    auto conv = [](const input_plane& inp, const conv_kernel& w, size_t y, size_t x) -> T
       {
+        const size_t pad_top = (y < pad_size) ? (pad_size - y) : 0;
+        const size_t pad_bot = (y > (output_height - pad_size - 1)) ? (y - (output_height - pad_size - 1)) : 0;
+        const size_t pad_left = (x < pad_size) ? (pad_size - x) : 0;
+        const size_t pad_right = (x > (output_width - pad_size - 1)) ? (x - (output_width - pad_size - 1)) : 0;
+
         T sum = static_cast<T>(0);
-        for (int i = pad_top; i < kernel_size-pad_bot; i++)
-          {
-            for (int j = pad_left; j < kernel_size-pad_right; j++)
-              {
-                sum += x[offset_y + i - kernel_size/2][offset_x + j - kernel_size/2] * w[i][j];
-              }
-          }
+        sum = transform_reduce(w.begin() + pad_top,
+                               w.end() - pad_bot,
+                               inp.begin() + y + pad_left - kernel_size/2,
+                               0.0,
+                               std::plus<T>(),
+                               [x, pad_left, pad_right](auto& left, auto& right) -> T
+                                 {
+                                   return transform_reduce(left.begin() + pad_left,
+                                                           left.end() - pad_right,
+                                                           right.begin() + x + pad_left - kernel_size/2,
+                                                           0.0,
+                                                           std::plus<T>(),
+                                                           std::multiplies<T>());
+                                 }
+                               );
         return sum;
       };
 
-    for (int output_channel = 0; output_channel < channels_out; output_channel++)
+    for (size_t output_channel = 0; output_channel < channels_out; output_channel++)
       {
         for (size_t i = 0; i < output_height; i++)
           {
-            pad_top = (i < pad_size) ? (pad_size - i) : 0;
-            pad_bot = (i > (output_height - pad_size - 1)) ? (i - (output_height - pad_size - 1)) : 0;
-
             for (size_t j = 0; j < output_width; j++)
               {
-                pad_left = (j < pad_size) ? (pad_size - j) : 0;
-                pad_right = (j > (output_width - pad_size - 1)) ? (j - (output_width - pad_size - 1)) : 0;
-
                 y[output_channel][i][j] = use_bias * bias[output_channel];
-
-                for (int input_channel = 0; input_channel < channels_in; input_channel++)
+                for (size_t input_channel = 0; input_channel < channels_in; input_channel++)
                   {
-                    y[output_channel][i][j] += conv(x[input_channel], weights[output_channel][input_channel], i, j,
-                                                    pad_top, pad_left, pad_bot, pad_right);
+                    y[output_channel][i][j] += conv(x[input_channel], weights[output_channel][input_channel], i, j);
                   }
               }
           }
       }
-    return y;
-  }
-
-  //T conv1(T a, size_t* offset, size_t* pad, T b)
-  //{
-    //printf("a=%f b=%f\n", a, b);
-  //  return a * b;
-  //}
-
-  template<typename L>
-  T conv1(L a, size_t* offset, size_t* pad, array<T, kernel_size> b)
-  {
-    //printf("N=1 offset=%ld pad=%ld %ld\n", offset[0], pad[0], pad[1]);
-    T val = inner_product(b.begin() + pad[0], b.begin() + kernel_size - pad[1], a.begin() + offset[0] + pad[0], 0.0);
-    //printf("N=1 offset=%ld pad=%ld %ld sum=%f\n", offset[0], pad[0], pad[1], val);
-    return val;
-  }
-
-  template<typename L, typename P, size_t N>
-  T conv1(L a, size_t* offset, size_t* pad, std::array<P, N> b)
-  {
-    T sum = 0;
-    //printf("+ N=%ld offset=%ld pad=%ld\n", N, offset[0], pad[0]);
-    for (size_t i = pad[0]; i < N - pad[1]; i++)
-      {
-        sum += conv1(a[i + *offset], offset+1, pad+2, b[i]);
-      }
-    //printf("- N=%ld offset=%ld pad=%ld sum=%f\n", N, offset[0], pad[0], sum);
-    return sum;
-  }
-
-  conv_output forward2(const conv_input& x)
-  {
-    conv_output y = {};
-
-    for (int output_channel = 0; output_channel < channels_out; output_channel++)
-      {
-        for (size_t i = 0; i < output_height; i++)
-          {
-            size_t pad_top = (i < pad_size) ? (pad_size - i) : 0;
-            size_t pad_bot = (i > (output_height - pad_size - 1)) ? (i - (output_height - pad_size - 1)) : 0;
-
-            for (size_t j = 0; j < output_width; j++)
-              {
-                y[output_channel][i][j] = use_bias * bias[output_channel];
-
-                size_t pad_left = (j < pad_size) ? (pad_size - j) : 0;
-                size_t pad_right = (j > (output_width - pad_size - 1)) ? (j - (output_width - pad_size - 1)) : 0;
-
-                size_t offset[] = {0, i-pad_size, j-pad_size};
-                size_t pad[] = {0,0, pad_top, pad_bot, pad_left, pad_right};
-
-                y[output_channel][i][j] += conv1(x, offset, pad, weights[output_channel]);
-              }
-          }
-      }
-
     return y;
   }
 
@@ -1008,7 +954,7 @@ int main(void)
   Conv2D<input_height, input_width, channels_in, channels_out, kernel_size> conv;
   Flatten<input_height, input_width, channels_out> flatten;
   MSE<input_height * input_width * channels_out> loss_fn;
-  auto y1 = conv.forward2(x);
+  auto y1 = conv.forward(x);
   auto y2 = flatten.forward(y1);
   auto loss = loss_fn.forward(y_true, y2);
 
