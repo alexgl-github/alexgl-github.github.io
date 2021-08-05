@@ -23,7 +23,7 @@ using std::chrono::seconds;
 /*
  * Print helper function
  */
-constexpr auto print_fn = [](const float& x)  -> void {printf("%7.4f ", x);};
+constexpr auto print_fn = [](const float& x, const char* fmt="%7.2f ")  -> void {printf(fmt, x);};
 
 /*
  * Constant weight intializer
@@ -749,7 +749,7 @@ struct Conv2D
   conv_weights weights;
   conv_bias bias;
 
-  static const size_t pad_size = kernel_size / 2;
+  static const int pad_size = kernel_size / 2;
 
   Conv2D()
   {
@@ -778,42 +778,39 @@ struct Conv2D
   {
     conv_output y;
 
-    auto conv = [](const input_plane& inp, const conv_kernel& w, size_t y, size_t x) -> T
+    auto conv = [](const input_plane& x, const conv_kernel& w, int i, int j) -> T
       {
-        const size_t pad_top = (y < pad_size) ? (pad_size - y) : 0;
-        const size_t pad_bot = (y > (output_height - pad_size - 1)) ? (y - (output_height - pad_size - 1)) : 0;
-        const size_t pad_left = (x < pad_size) ? (pad_size - x) : 0;
-        const size_t pad_right = (x > (output_width - pad_size - 1)) ? (x - (output_width - pad_size - 1)) : 0;
+        const int pad_top = (i < 0) ? (-i) : 0;
+        const int pad_bot = (i > output_height - kernel_size) ? (i - output_height + kernel_size) : 0;
+        const int pad_left = (j < 0) ? (- j) : 0;
+        const int pad_right = (j > output_width - kernel_size) ? (j - output_width + kernel_size) : 0;
 
-        T sum = static_cast<T>(0);
-        sum = transform_reduce(w.begin() + pad_top,
-                               w.end() - pad_bot,
-                               inp.begin() + y + pad_left - kernel_size/2,
-                               0.0,
-                               std::plus<T>(),
-                               [x, pad_left, pad_right](auto& left, auto& right) -> T
-                                 {
-                                   return transform_reduce(left.begin() + pad_left,
-                                                           left.end() - pad_right,
-                                                           right.begin() + x + pad_left - kernel_size/2,
-                                                           0.0,
-                                                           std::plus<T>(),
-                                                           std::multiplies<T>());
-                                 }
-                               );
+        T sum = std::transform_reduce(w.begin() + pad_top,
+                                      w.end()   - pad_bot,
+                                      x.begin() + pad_top + i,
+                                      static_cast<T>(0),
+                                      std::plus<T>(),
+                                      [j, pad_left, pad_right](auto& w_i, auto& x_i) -> T
+                                        {
+                                          return std::inner_product(w_i.begin() + pad_left,
+                                                                    w_i.end()   - pad_right,
+                                                                    x_i.begin() + pad_left + j,
+                                                                    static_cast<T>(0));
+                                        }
+                                      );
         return sum;
       };
 
-    for (size_t output_channel = 0; output_channel < channels_out; output_channel++)
+    for (int output_channel = 0; output_channel < channels_out; output_channel++)
       {
-        for (size_t i = 0; i < output_height; i++)
+        for (int i = 0; i < output_height; i++)
           {
-            for (size_t j = 0; j < output_width; j++)
+            for (int j = 0; j < output_width; j++)
               {
                 y[output_channel][i][j] = use_bias * bias[output_channel];
-                for (size_t input_channel = 0; input_channel < channels_in; input_channel++)
+                for (int input_channel = 0; input_channel < channels_in; input_channel++)
                   {
-                    y[output_channel][i][j] += conv(x[input_channel], weights[output_channel][input_channel], i, j);
+                    y[output_channel][i][j] += conv(x[input_channel], weights[output_channel][input_channel], i - pad_size, j - pad_size);
                   }
               }
           }
