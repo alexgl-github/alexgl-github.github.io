@@ -788,10 +788,12 @@ struct Conv2D
         T sum = static_cast<T>(0);
         for (size_t i = pad_top; i < kernel_size-pad_bot; i++)
           {
-            for (size_t j = pad_left; j < kernel_size-pad_right; j++)
-              {
-                sum += inp[y + i - kernel_size/2][x + j - kernel_size/2] * w[i][j];
-              }
+            sum += transform_reduce(w[i].begin() + pad_left,
+                                    w[i].end() - pad_right,
+                                    inp[y + i - kernel_size/2].begin() + x + pad_left - kernel_size/2,
+                                    0.0,
+                                    std::plus<T>(),
+                                    std::multiplies<T>());
           }
         return sum;
       };
