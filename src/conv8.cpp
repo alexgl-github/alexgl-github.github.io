@@ -836,13 +836,15 @@ struct Conv2D
       }
   }
 
-  std::function<T(const input_plane& x, const conv_kernel& w, int i, int j)> conv =
-    [](const input_plane& x, const conv_kernel& w, int i, int j) -> T
+  template<int height_x, int width_x, int height_w, int width_w>
+  static T conv (const std::array<std::array<T, width_x>, height_x>& x,
+          const std::array<std::array<T, width_w>, height_w>& w,
+          int i, int j)
   {
     const int pad_top = (i < 0) ? (-i) : 0;
-    const int pad_bot = (i > output_height - kernel_size) ? (i - output_height + kernel_size) : 0;
+    const int pad_bot = (i > height_x - height_w) ? (i - height_x + height_w) : 0;
     const int pad_left = (j < 0) ? (- j) : 0;
-    const int pad_right = (j > output_width - kernel_size) ? (j - output_width + kernel_size) : 0;
+    const int pad_right = (j > width_x - width_w) ? (j - width_x + width_w) : 0;
 
     T sum = std::transform_reduce(w.begin() + pad_top,
                                   w.end()   - pad_bot,
@@ -857,30 +859,7 @@ struct Conv2D
                                                                 static_cast<T>(0));
                                     }
                                   );
-    return sum;
-  };
 
-  std::function<T(const input_plane& x, const output_plane& w, int i, int j)> conv2 =
-    [](const input_plane& x, const output_plane& w, int i, int j) -> T
-  {
-    const int pad_top = (i < 0) ? (-i) : 0;
-    const int pad_bot = (i > kernel_size - kernel_size) ? (i - kernel_size + kernel_size) : 0;
-    const int pad_left = (j < 0) ? (- j) : 0;
-    const int pad_right = (j > kernel_size - kernel_size) ? (j - kernel_size + kernel_size) : 0;
-
-    T sum = std::transform_reduce(w.begin() + pad_top,
-                                  w.end()   - pad_bot,
-                                  x.begin() + pad_top + i,
-                                  static_cast<T>(0),
-                                  std::plus<T>(),
-                                  [j, pad_left, pad_right](auto& w_i, auto& x_i) -> T
-                                    {
-                                      return std::inner_product(w_i.begin() + pad_left,
-                                                                w_i.end()   - pad_right,
-                                                                x_i.begin() + pad_left + j,
-                                                                static_cast<T>(0));
-                                    }
-                                  );
     return sum;
   };
 
@@ -897,7 +876,11 @@ struct Conv2D
                 y[output_channel][i][j] = use_bias * bias[output_channel];
                 for (int input_channel = 0; input_channel < channels_inp; input_channel++)
                   {
-                    y[output_channel][i][j] += conv(x[input_channel], weights[output_channel][input_channel], i - pad_size, j - pad_size);
+                    y[output_channel][i][j] +=
+                      conv<input_height, input_width, kernel_size, kernel_size>(x[input_channel],
+                                                                                weights[output_channel][input_channel],
+                                                                                i - pad_size,
+                                                                                j - pad_size);
                   }
               }
           }
@@ -920,7 +903,11 @@ struct Conv2D
                 for (int input_channel = 0; input_channel < channels_inp; input_channel++)
                   {
                     dw[output_channel][input_channel][i][j] = 0.0;
-                    dw[output_channel][input_channel][i][j] += conv2(x[input_channel], grad[output_channel], i - pad_size, j - pad_size);
+                    dw[output_channel][input_channel][i][j] +=
+                      conv<input_height, input_width, output_height, output_width>(x[input_channel],
+                                                                                   grad[output_channel],
+                                                                                   i - pad_size,
+                                                                                   j - pad_size);
                   }
               }
           }
