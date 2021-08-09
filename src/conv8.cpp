@@ -786,8 +786,8 @@ template<int input_height,
          int channels_inp = 1,
          int channels_out =1,
          int kernel_size = 3,
-         int stride = 1,
          int use_bias = 1,
+         int stride = 1,
          typename T = float,
          T (*weights_initializer)() = const_initializer<const_one>,
          T (*bias_initializer)() = const_initializer<const_one>>
@@ -913,14 +913,51 @@ struct Conv2D
           }
       }
 
+    conv_weights weights_transposed;
+    for (int input_channel = 0; input_channel < channels_inp; input_channel++)
+      {
+        for (int output_channel = 0; output_channel < channels_inp; output_channel++)
+          {
+            for (size_t i = 0; i < kernel_size; i++)
+              {
+                for (size_t j = 0; j < kernel_size; j++)
+                  {
+                    weights_transposed[output_channel][input_channel][i][j] = weights[output_channel][input_channel][j][i];
+                  }
+              }
+          }
+      }
+
+    for (int input_channel = 0; input_channel < channels_inp; input_channel++)
+      {
+        for (int i = 0; i < input_height; i++)
+          {
+            for (int j = 0; j < input_width; j++)
+              {
+                grad_out[input_channel][i][j] = 0.0;
+                for (int output_channel = 0; output_channel < channels_inp; output_channel++)
+                  {
+                    grad_out[input_channel][i][j] +=
+                      conv<output_height, output_width, kernel_size, kernel_size>(grad[output_channel],
+                                                                                  weights[output_channel][input_channel],
+                                                                                  i - pad_size,
+                                                                                  j - pad_size);
+                  }
+              }
+          }
+      }
+
     printf("x=\n");
     print_n(x);
 
-    printf("grad=\n");
+    printf("grad_inp=\n");
     print_n(grad);
 
     printf("dw=\n");
     print_n(dw);
+
+    printf("grad_out=\n");
+    print_n(grad_out);
 
     return grad_out;
   }
@@ -992,8 +1029,8 @@ struct Conv2D
  */
 int main(void)
 {
-  const int input_height = 10;
-  const int input_width = 10;
+  const int input_height = 5;
+  const int input_width = 5;
   const int channels_in = 1;
   const int channels_out = 1;
   const int kernel_size = 3;
@@ -1034,7 +1071,7 @@ int main(void)
   /*
    * Create DNN layers and the loss
    */
-  Conv2D<input_height, input_width, channels_in, channels_out, kernel_size> conv;
+  Conv2D<input_height, input_width, channels_in, channels_out, kernel_size, 0> conv;
   Flatten<input_height, input_width, channels_out> flatten;
   MSE<input_height * input_width * channels_out> loss_fn;
   auto y1 = conv.forward(x);
