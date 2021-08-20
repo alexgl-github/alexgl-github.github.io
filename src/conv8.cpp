@@ -32,7 +32,8 @@ template<typename T>
 auto print_n(T& x, const char* fmt="%7.2f ")
 {
   std::for_each(x.begin(), x.end(),
-                [fmt](const auto& xi) {
+                [fmt](const auto& xi)
+                {
                   print_n(xi, fmt);
                 });
   printf("\n");
@@ -40,16 +41,41 @@ auto print_n(T& x, const char* fmt="%7.2f ")
 
 
 /*
+ *
+ */
+template<typename G>
+auto initialize(float& x, G& generator)
+{
+  x = generator();
+}
+
+template<typename T, typename G>
+auto initialize(T& x, G& generator)
+{
+  std::for_each(x.begin(), x.end(), [generator](auto& x_i)
+                {
+                  initialize(x_i, generator);
+                });
+}
+
+
+/*
+ * Incremental and decremental initializers
+ */
+template<int initial_value = 0, typename T=float>
+auto gen_inc = []() { static int i = initial_value; return static_cast<T>(i++);};
+
+template<int initial_value = 0, typename T=float>
+auto gen_dec = []() { static int i = initial_value; return static_cast<T>(i--);};
+
+/*
  * Constant weight intializer
  */
-const float const_one = 1.0;
-const float const_zero = 0.0;
-const float const_one_half = 0.0;
 
-template<float const& value = const_zero>
+template<typename T = float, const int num = 0, const int det = 1>
 constexpr auto const_initializer = []() -> float
 {
-  return value;
+  return static_cast<T>(num) / static_cast<T>(det);
 };
 
 /*
@@ -73,7 +99,7 @@ constexpr auto random_uniform_initializer = []() -> float
  *  T: input, output, and weights type in the dense layer
  *  initializer: weights initializer function
  */
-template<size_t num_inputs, size_t num_outputs, typename T = float, T (*weights_initializer)() = random_uniform_initializer, T (*bias_initializer)() = const_initializer<const_zero> >
+template<size_t num_inputs, size_t num_outputs, typename T = float, T (*weights_initializer)() = random_uniform_initializer, T (*bias_initializer)() = const_initializer<> >
 struct Dense
 {
 
@@ -282,14 +308,14 @@ struct Dense
      * compute dw = dw + outer(x, grad)
      */
     transform(dw.begin(), dw.end(), grad.begin(), dw.begin(),
-              [this](input_vector& left, const T& grad_i)
+              [this](input_vector& dw_i, const T& grad_i)
               {
                 /* compute outer product for each row */
                 auto row = x;
                 for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
 
                 /* accumulate into dw */
-                std::transform (left.begin(), left.end(), row.begin(), left.begin(), std::plus<T>());
+                std::transform (dw_i.begin(), dw_i.end(), row.begin(), dw_i.begin(), std::plus<T>());
                 return left;
               });
     /*
@@ -351,56 +377,6 @@ struct Dense
       }
     std::fill(std::begin(db), std::end(db), 0.0);
   }
-  /*
-   * Helper function to convert Dense layer to string
-   * Used for printing the layer weights and biases
-   */
-  operator std::string() const
-  {
-    std::ostringstream ret;
-    ret.precision(7);
-
-    /*
-     * output weights
-     */
-    ret << "weights:" << std::endl;
-    for (int y=0; y < weights[0].size(); y++)
-      {
-        for (int x=0; x < weights.size(); x++)
-          {
-            if (weights[x][y] >= 0)
-              ret << " ";
-            ret << std::fixed << weights[x][y] << " ";
-          }
-        ret << std::endl;
-      }
-
-    if (use_bias)
-      {
-        /*
-         * output biases
-         */
-        ret << "bias:" << std::endl;
-        for (auto b: bias)
-          {
-            if (b >= 0)
-              ret << " ";
-            ret << std::fixed << b << " ";
-          }
-        ret << std::endl;
-      }
-
-    return ret.str();
-  }
-
-  /*
-   * Helper function to cout Dense layer object
-   */
-  friend ostream& operator<<(ostream& os, const Dense& dense)
-  {
-    os << (string)dense;
-    return os;
-  }
 
 };
 
@@ -455,7 +431,7 @@ struct Sigmoid
   /*
    * No trainabele weights in Sigmoid
    */
-  void train(float lr)
+  void train(float)
   {
   }
 
@@ -570,7 +546,7 @@ struct MSE
                                 return (left - right) * (left - right);
                               }
                               );
-    return loss / num_inputs;
+    return loss / static_cast<T>(num_inputs);
   }
 
   /*
@@ -786,11 +762,11 @@ template<int input_height,
          int channels_inp = 1,
          int channels_out =1,
          int kernel_size = 3,
-         int use_bias = 1,
          int stride = 1,
+         bool use_bias = false,
          typename T = float,
-         T (*weights_initializer)() = const_initializer<const_one>,
-         T (*bias_initializer)() = const_initializer<const_one>>
+         T (*weights_initializer)() = const_initializer<>,
+         T (*bias_initializer)() = const_initializer<>>
 struct Conv2D
 {
   typedef array<T, input_width> input_row;
@@ -805,35 +781,26 @@ struct Conv2D
   typedef array<output_plane, channels_out> conv_output;
 
   typedef array<array<T, kernel_size>, kernel_size> conv_kernel;
+  /*
+   * OIHW
+   */
   typedef array<array<conv_kernel, channels_inp>, channels_out> conv_weights;
 
   typedef array<T, channels_out> conv_bias;
 
   conv_weights weights;
   conv_bias bias;
+  conv_weights dw;
+  conv_bias db;
 
   static const int pad_size = kernel_size / 2;
 
   Conv2D()
   {
-    static int i = 1;
-    for (int channel_out = 0; channel_out < channels_out; channel_out++)
-      {
-        for (int channel_in = 0; channel_in < channels_inp; channel_in++)
-          {
-            for (auto& weights_row: weights[channel_out][channel_in])
-              {
-                std::generate(weights_row.begin(), weights_row.end(),
-                              //              *weights_initializer);
-                              [] {return i++;});
-              }
-          }
-      }
-
-    if (use_bias)
-      {
-        generate(bias.begin(), bias.end(), *bias_initializer);
-      }
+    initialize(weights, *weights_initializer);
+    initialize(bias, *bias_initializer);
+    initialize(dw, const_initializer<>);
+    initialize(db, const_initializer<>);
   }
 
   template<int height_x, int width_x, int height_w, int width_w>
@@ -892,8 +859,6 @@ struct Conv2D
   {
     conv_input grad_out = {};
 
-    conv_weights dw;
-
     for (int output_channel = 0; output_channel < channels_out; output_channel++)
       {
         for (int i = 0; i < kernel_size; i++)
@@ -913,18 +878,40 @@ struct Conv2D
           }
       }
 
-    conv_weights weights_transposed;
+    for (int output_channel = 0; output_channel < channels_out; output_channel++)
+      {
+        db[output_channel] += std::accumulate(grad[output_channel].cbegin(), grad[output_channel].cend(),
+                                              static_cast<T>(0),
+                                              [](auto total, const auto& grad_i)
+                                              {
+                                                return std::accumulate(grad_i.cbegin(), grad_i.cend(), total);
+                                              });
+      }
+
+    conv_weights weights_rot180;
     for (int input_channel = 0; input_channel < channels_inp; input_channel++)
       {
-        for (int output_channel = 0; output_channel < channels_inp; output_channel++)
+        for (int output_channel = 0; output_channel < channels_out; output_channel++)
           {
+
             for (size_t i = 0; i < kernel_size; i++)
               {
                 for (size_t j = 0; j < kernel_size; j++)
                   {
-                    weights_transposed[output_channel][input_channel][i][j] = weights[output_channel][input_channel][j][i];
+                    weights_rot180[output_channel][input_channel][i][j] = weights[output_channel][input_channel][i][kernel_size - j - 1];
                   }
               }
+
+            for (size_t i = 0; i < kernel_size/2; i++)
+              {
+                for (size_t j = 0; j < kernel_size; j++)
+                  {
+                    auto t = weights_rot180[output_channel][input_channel][i][j];
+                    weights_rot180[output_channel][input_channel][i][j] = weights_rot180[output_channel][input_channel][kernel_size - i - 1][j];
+                    weights_rot180[output_channel][input_channel][kernel_size - i - 1][j] = t;
+                  }
+              }
+
           }
       }
 
@@ -935,11 +922,11 @@ struct Conv2D
             for (int j = 0; j < input_width; j++)
               {
                 grad_out[input_channel][i][j] = 0.0;
-                for (int output_channel = 0; output_channel < channels_inp; output_channel++)
+                for (int output_channel = 0; output_channel < channels_out; output_channel++)
                   {
                     grad_out[input_channel][i][j] +=
                       conv<output_height, output_width, kernel_size, kernel_size>(grad[output_channel],
-                                                                                  weights[output_channel][input_channel],
+                                                                                  weights_rot180[output_channel][input_channel],
                                                                                   i - pad_size,
                                                                                   j - pad_size);
                   }
@@ -947,123 +934,78 @@ struct Conv2D
           }
       }
 
-    printf("x=\n");
-    print_n(x);
-
-    printf("grad_inp=\n");
-    print_n(grad);
-
-    printf("dw=\n");
-    print_n(dw);
-
-    printf("grad_out=\n");
-    print_n(grad_out);
+    //printf("grad=\n");
+    //print_n(grad);
+    //printf("weights_rot=\n");
+    //print_n(weights_rot180);
+    //printf("grad_out=\n");
+    //print_n(grad_out);
 
     return grad_out;
   }
 
-    /*
-   * Helper function to convert Dense layer to string
-   * Used for printing the layer weights and biases
-   */
-  operator std::string() const
+  void train(float learning_rate)
   {
-    std::ostringstream ret;
-    ret.precision(7);
-
     /*
-     * output weights
+     * compute w = w - learning_rate * dw
      */
-    ret << "weights:" << std::endl;
-
-    for (int output_channel = 0; output_channel < channels_out; output_channel++)
+    for (int input_channel = 0; input_channel < channels_inp; input_channel++)
       {
-        for (int input_channel = 0; input_channel < channels_inp; input_channel++)
+        for (int output_channel = 0; output_channel < channels_out; output_channel++)
           {
-            for (int y=0; y < kernel_size; y++)
+            for (size_t i = 0; i < kernel_size; i++)
               {
-                for (int x=0; x < kernel_size; x++)
+                for (size_t j = 0; j < kernel_size; j++)
                   {
-                    if (weights[output_channel][input_channel][y][x] >= 0)
-                      ret << " ";
-                    ret << std::fixed << weights[output_channel][input_channel][y][x] << " ";
+                    weights[output_channel][input_channel][i][j] = weights[output_channel][input_channel][i][j] - learning_rate * dw[output_channel][input_channel][i][j];
                   }
-                ret << std::endl;
               }
           }
       }
 
+    /*
+     * compute bias = bias - learning_rate * db
+     */
     if (use_bias)
       {
-        /*
-         * output biases
-         */
-        ret << "bias:" << std::endl;
-        for (auto b: bias)
+        for (int output_channel = 0; output_channel < channels_out; output_channel++)
           {
-            if (b >= 0)
-              ret << " ";
-            ret << std::fixed << b << " ";
+            bias[output_channel] -= learning_rate * db[output_channel];
           }
-        ret << std::endl;
       }
 
-    return ret.str();
+    /*
+     * Reset accumulated dw and db
+     */
+    reset_gradients();
   }
 
   /*
-   * Helper function to cout Dense layer object
+   * Reset weigth and bias gradient accumulators
    */
-  friend ostream& operator<<(ostream& os, const Conv2D& conv)
+  void reset_gradients()
   {
-    os << (string)conv;
-    return os;
+    initialize(dw, const_initializer<>);
+    initialize(db, const_initializer<>);
   }
 
-
 };
-
 
 /*
  * DNN train and validation loops are implemented in the main() function.
  */
+
+
 int main(void)
 {
   const int input_height = 5;
   const int input_width = 5;
   const int channels_in = 1;
-  const int channels_out = 1;
+  const int channels_out = 2;
   const int kernel_size = 3;
   std::array<std::array<std::array<float, input_width>, input_height>, channels_in> x = {};
 
-  if (0)
-    {
-      static int i = 1;
-      for (auto channel_in = 0; channel_in < channels_in; channel_in++)
-        {
-          for (auto& row: x[channel_in])
-            {
-              std::generate(row.begin(), row.end(),
-                            [] { return i++; });
-            }
-        }
-    }
-  else
-    {
-      std::for_each(x.begin(), x.end(),
-                [](auto& x1)
-                {
-                  std::for_each(x1.begin(), x1.end(),
-                                [](auto& x2)
-                                {
-                                  std::for_each(x2.begin(), x2.end(),
-                                                [](auto& x3)
-                                                {
-                                                  x3 = 1.0;
-                                                });
-                                });
-                });
-    }
+  initialize(x, gen_dec<input_height * input_width * channels_in>);
 
   std::array<float, input_height * input_width * channels_out>  y_true;
   std::fill(y_true.begin(), y_true.end(), 1.0);
@@ -1071,38 +1013,48 @@ int main(void)
   /*
    * Create DNN layers and the loss
    */
-  Conv2D<input_height, input_width, channels_in, channels_out, kernel_size, 0> conv;
+  Conv2D<input_height, input_width, channels_in, channels_out, kernel_size,
+         /* stride */ 1, /* use_bias */ true,
+         float,
+         gen_inc<1>,
+         gen_dec<channels_out>> conv;
   Flatten<input_height, input_width, channels_out> flatten;
   MSE<input_height * input_width * channels_out> loss_fn;
-  auto y1 = conv.forward(x);
-  auto y2 = flatten.forward(y1);
-  auto loss = loss_fn.forward(y_true, y2);
 
-  auto dloss_dy = loss_fn.backward(y_true, y2);
-  auto dy2_dy1 = flatten.backward(dloss_dy);
-  auto dy1_dx = conv.backward(x, dy2_dy1);
-
-  printf("input x=\n");
+  printf("input x:\n");
   print_n(x);
 
-  printf("dense layer weights:\n%s", ((std::string)conv).c_str());
+  printf("conv weights:\n");
+  print_n(conv.weights);
+  printf("conv bias:");
+  print_n(conv.bias);
 
-  printf("conv output y1=\n");
+  auto y1 = conv.forward(x);
+  auto y  = flatten.forward(y1);
+  auto loss = loss_fn.forward(y_true, y);
+
+  printf("output y:\n");
   print_n(y1);
 
-  printf("output y2=\n");
-  print_n(y2);
+  printf("loss: %.5f\n", loss);
 
-  printf("expected output y_true=\n");
-  print_n(y_true);
+  auto dloss_dy  = loss_fn.backward(y_true, y);
+  auto dloss_dy1 = flatten.backward(dloss_dy);
+  auto dloss_dx  = conv.backward(x, dloss_dy1);
 
-  printf("loss=%.5f\n", loss);
+  printf("dloss_dy:\n");
+  print_n(dloss_dy1);
 
-  printf("dy2_dy1=\n");
-  print_n(dy2_dy1);
+  printf("dloss_dx:\n");
+  print_n(dloss_dx);
 
-  printf("dy1_dx=\n");
-  print_n(dy1_dx);
+  conv.train(/*learning_rate */ 1.0);
+
+  printf("updated conv weights:\n");
+  print_n(conv.weights);
+
+  printf("updated conv bias:\n");
+  print_n(conv.bias);
 
   return 0;
 }
