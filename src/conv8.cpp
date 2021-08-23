@@ -934,13 +934,6 @@ struct Conv2D
           }
       }
 
-    //printf("grad=\n");
-    //print_n(grad);
-    //printf("weights_rot=\n");
-    //print_n(weights_rot180);
-    //printf("grad_out=\n");
-    //print_n(grad_out);
-
     return grad_out;
   }
 
@@ -994,8 +987,6 @@ struct Conv2D
 /*
  * DNN train and validation loops are implemented in the main() function.
  */
-
-
 int main(void)
 {
   const int input_height = 5;
@@ -1013,11 +1004,17 @@ int main(void)
   /*
    * Create DNN layers and the loss
    */
-  Conv2D<input_height, input_width, channels_in, channels_out, kernel_size,
-         /* stride */ 1, /* use_bias */ true,
-         float,
-         gen_inc<1>,
-         gen_dec<channels_out>> conv;
+  Conv2D<input_height,         /* input height */
+         input_width,          /* input width */
+         channels_in,          /* number of input channels */
+         channels_out,         /* number of output channels */
+         kernel_size,          /* convolution kernel size */
+         1,                    /* stride */
+         true,                 /* use_bias flag */
+         float,                /* conv data type */
+         gen_inc<1>,           /* initialier for kernel weights */
+         gen_dec<channels_out> /* initialier for bias weights */
+         > conv;
   Flatten<input_height, input_width, channels_out> flatten;
   MSE<input_height * input_width * channels_out> loss_fn;
 
