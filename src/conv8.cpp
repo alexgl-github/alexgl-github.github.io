@@ -867,7 +867,6 @@ struct Conv2D
               {
                 for (int input_channel = 0; input_channel < channels_inp; input_channel++)
                   {
-                    dw[output_channel][input_channel][i][j] = 0.0;
                     dw[output_channel][input_channel][i][j] +=
                       conv<input_height, input_width, output_height, output_width>(x[input_channel],
                                                                                    grad[output_channel],

@@ -23,9 +23,9 @@ assume:
 
 ![mnist_image]({{ site.url }}/images/dotproduct.png)
 
-Dense layer output Y is:
+Dense layer output Y is matrix multiplication of X by W:
 
-$$ \hat Y = X * W $$
+$$ \hat Y = X W $$
 
 
 Where:
@@ -102,7 +102,7 @@ $$
 and
 
 $$
-\frac {\partial \hat Y} {\partial W} = \frac {\partial (X * W)} {\partial W} = X^T
+\frac {\partial \hat Y} {\partial W} = \frac {\partial (X W)} {\partial W} = X^T
 $$
 
 Finally we have equastion for weights update  $$\frac {\partial E} {\partial W}$$
