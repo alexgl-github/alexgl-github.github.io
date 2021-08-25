@@ -2,23 +2,12 @@
 #include <vector>
 #include <array>
 #include <algorithm>
-#include <cassert>
 #include <array>
-#include <chrono>
-#include <sstream>
-#include <string>
 #include <iterator>
 #include <variant>
 #include <random>
-#include "mnist.h"
-#include "f1.h"
 
 using namespace std;
-using std::chrono::high_resolution_clock;
-using std::chrono::duration_cast;
-using std::chrono::microseconds;
-using std::chrono::milliseconds;
-using std::chrono::seconds;
 
 /*
  * Print helper function
@@ -89,443 +78,6 @@ constexpr auto random_uniform_initializer = []() -> float
   return 2.0 * static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 1.0;
 };
 
-
-/*
- * Dense layer class template
- *
- * Parameters:
- *  num_inputs: number of inputs to Dense layer
- *  num_outputs: number of Dense layer outputs
- *  T: input, output, and weights type in the dense layer
- *  initializer: weights initializer function
- */
-template<size_t num_inputs, size_t num_outputs, typename T = float, T (*weights_initializer)() = random_uniform_initializer, T (*bias_initializer)() = const_initializer<> >
-struct Dense
-{
-
-  /*
-   * input outut vector type definitions
-   */
-  typedef array<T, num_inputs> input_vector;
-  typedef array<T, num_outputs> output_vector;
-
-  /*
-   * dense layer weights matrix W, used in y = X * W
-   * weights are transposed to speed up forward() computation
-   */
-  std::array<input_vector, num_outputs> weights;
-
-  /*
-   * bias vector
-   */
-  output_vector bias;
-
-  /*
-   * Flag to enable/disable bias
-   */
-  bool use_bias = true;
-
-  /*
-   * Matrix of transposed weights W pointers, used to speed up backward() path
-   */
-  std::array<array<T*, num_outputs>, num_inputs> weights_transposed;
-
-  /*
-   * dw is accumulating weight updates in backward() pass.
-   */
-  std::array<input_vector, num_outputs> dw;
-
-  /*
-   * db is accumulating bias updates in backward() pass.
-   */
-  output_vector db;
-
-  /*
-   * x is for saving input to forward() call, used later in the backward() pass.
-   */
-  input_vector x;
-
-  /*
-   * Default dense layer constructor
-   */
-  Dense(bool _use_bias=true)
-  {
-    /*
-     * Create num_outputs x num_inputs weights matrix
-     */
-    for (input_vector& w: weights)
-      {
-        generate(w.begin(), w.end(), *weights_initializer);
-      }
-
-    /*
-     * Ctreate transposed array of weighst pointers
-     */
-    //weights_transposed.resize(num_inputs);
-    for (size_t i = 0; i < num_inputs; i++)
-      {
-        for (size_t j = 0; j < num_outputs; j++)
-          {
-            weights_transposed[i][j] = &weights[j][i];
-          }
-      }
-
-    /*
-     * Initialize bias vector
-     */
-    use_bias = _use_bias;
-    generate(bias.begin(), bias.end(), *bias_initializer);
-
-    /*
-     * Initialize dw, db
-     */
-    reset_gradients();
-  }
-
-  /*
-   * Dense layer constructor from provided weigths and biases
-   * Note: weights are stored transposed
-   */
-  Dense(const array<array<T, num_inputs>, num_outputs>& weights_init, const array<T, num_outputs>& biases_init)
-  {
-    /*
-     * Create num_outputs x num_inputs weights matrix
-     */
-    for (auto weights_row: weights_init)
-      {
-        weights.push_back(weights_row);
-      }
-
-    /*
-     * Initialize bias vector
-     */
-    bias = biases_init;
-  }
-
-  /*
-   * Dense layer constructor from provided weigths. Bias is not used
-   * Note: weights are stored transposed
-   */
-  Dense(const array<array<T, num_inputs>, num_outputs>& weights_init)
-  {
-    /*
-     * Create num_outputs x num_inputs weights matrix
-     */
-    for (auto weights_row: weights_init)
-      {
-        weights.push_back(weights_row);
-      }
-
-    use_bias = false;
-  }
-
-  /*
-   * Dense layer forward pass
-   * Computes X * W + B
-   *  X - input row vector
-   *  W - weights matrix
-   *  B - bias row wector
-   */
-  output_vector forward(const input_vector& input_x)
-  {
-    /*
-     * Save the last input X
-     */
-    x = input_x;
-
-    /*
-     * Check for input size mismatch
-     */
-    assert(x.size() == weights[0].size());
-
-    /*
-     * Layer output is dot product of input with weights
-     */
-    output_vector y;
-    transform(weights.begin(), weights.end(), bias.begin(), y.begin(), [this](const input_vector& w, T bias)
-              {
-                T y_i = inner_product(w.begin(), w.end(), x.begin(), 0.0);
-                if (use_bias)
-                  {
-                    y_i += bias;
-                  }
-                return y_i;
-              }
-              );
-
-    return y;
-  }
-
-
-  /*
-   * Dense layer backward pass
-   */
-  input_vector backward(const output_vector& grad)
-  {
-    /*
-     * Weight update according to SGD algorithm with momentum = 0.0 is:
-     *  w = w - learning_rate * d_loss/dw
-     *
-     * d_loss/dw = dloss/dy * dy/dw
-     * d_loss/dbias = dloss/dy * dy/dbias
-     *
-     * dloss/dy is input gradient grad
-     *
-     * dy/dw is :
-     *  y = w[0]*x[0] + w[1] * x[1] +... + w[n] * x[n] + bias
-     *  dy/dw[i] = x[i]
-     *
-     * dy/dbias is :
-     *  dy/dbias = 1
-     *
-     * For clarity we:
-     *  first compute dw
-     *  second update weights by subtracting dw
-     */
-
-    /*
-     * Compute backpropagated gradient
-     */
-    input_vector grad_out;
-    transform(weights_transposed.begin(), weights_transposed.end(), grad_out.begin(),
-              [grad](array<T*, num_outputs>& w)
-              {
-                T val = inner_product(w.begin(), w.end(), grad.begin(), 0.0,
-                                      [](const T& l, const T& r)
-                                      {
-                                        return l + r;
-                                      },
-                                      [](const T* l, const T& r)
-                                      {
-                                        return *l * r;
-                                      }
-                                      );
-                return val;
-              });
-
-    /*
-     * accumulate weight updates
-     * compute dw = dw + outer(x, grad)
-     */
-    transform(dw.begin(), dw.end(), grad.begin(), dw.begin(),
-              [this](input_vector& dw_i, const T& grad_i)
-              {
-                /* compute outer product for each row */
-                auto row = x;
-                for_each(row.begin(), row.end(), [grad_i](T &xi){ xi *= grad_i;});
-
-                /* accumulate into dw */
-                std::transform (dw_i.begin(), dw_i.end(), row.begin(), dw_i.begin(), std::plus<T>());
-                return left;
-              });
-    /*
-     * accumulate bias updates
-     */
-    std::transform(db.begin(), db.end(), grad.begin(), db.begin(), std::plus<T>());
-
-    return grad_out;
-  }
-
-  /*
-   * Update Dense layer weigts/biases using accumulated dw/db
-   */
-  void train(float learning_rate)
-  {
-    /*
-     * compute w = w - learning_rate * dw
-     */
-    transform(weights.begin(), weights.end(), dw.begin(), weights.begin(),
-              [learning_rate](input_vector& left, input_vector& right)
-              {
-                transform(left.begin(), left.end(), right.begin(), left.begin(),
-                          [learning_rate](const T& w_i, const T& dw_i)
-                          {
-                            return w_i - learning_rate * dw_i;
-                          });
-                return left;
-              });
-
-    /*
-     * compute bias = bias - learning_rate * db
-     */
-    if (use_bias)
-      {
-        /*
-         * compute bias = bias - grad
-         */
-        transform(bias.begin(), bias.end(), db.begin(), bias.begin(),
-                  [learning_rate](const T& bias_i, const T& db_i)
-                  {
-                    return bias_i - learning_rate * db_i;
-                  });
-      }
-
-    /*
-     * Reset accumulated dw and db
-     */
-    reset_gradients();
-  }
-
-  /*
-   * Reset weigth and bias gradient accumulators
-   */
-  void reset_gradients()
-  {
-    for (input_vector& dw_i: dw)
-      {
-        std::fill(std::begin(dw_i), std::end(dw_i), 0.0);
-      }
-    std::fill(std::begin(db), std::end(db), 0.0);
-  }
-
-};
-
-
-/*
- * Sigmoid layer class template
- */
-template<size_t num_inputs, typename T = float>
-struct Sigmoid
-{
-  typedef array<T, num_inputs> input_vector;
-  typedef array<T, num_inputs> output_vector;
-
-  /*
-   * x is for saving input to forward() call, used later in the backward() pass.
-   */
-  input_vector x;
-
-  /*
-   * Sigmoid forward pass
-   */
-  output_vector forward(const input_vector& input_x)
-  {
-    output_vector y;
-    x = input_x;
-    transform(x.begin(), x.end(), y.begin(),
-              [](const T& yi)
-              {
-                T out = 1.0  / (1.0 + expf(-yi));
-                return out;
-              });
-    return y;
-  }
-
-  /*
-   * Sigmoid backward pass
-   */
-  input_vector backward(const output_vector& grad)
-  {
-    input_vector grad_output;
-
-    const output_vector y = forward(x);
-    transform(y.begin(), y.end(), grad.begin(), grad_output.begin(),
-              [](const T& y_i, const T& grad_i)
-              {
-                T out = grad_i * y_i * (1 - y_i);
-                return out;
-              });
-    return grad_output;
-  }
-
-  /*
-   * No trainabele weights in Sigmoid
-   */
-  void train(float)
-  {
-  }
-
-};
-
-
-/*
- * Softmax layer class template
- */
-template<size_t num_inputs, typename T = float>
-struct Softmax
-{
-  typedef array<T, num_inputs> input_vector;
-  typedef array<T, num_inputs> output_vector;
-
-  /*
-   * x is for saving input to forward() call, and is used in the backward() pass.
-   */
-  input_vector x;
-
-  /*
-   * Softmax forward function
-   */
-  output_vector forward(const input_vector& input_x)
-  {
-    output_vector y;
-
-    /*
-     * Save input to forward()
-     */
-    x = input_x;
-
-    /*
-     * compute exp(x_i) / sum(exp(x_i), i=1..N)
-     */
-    transform(x.begin(), x.end(), y.begin(),
-              [](const T& yi)
-              {
-                T out = expf(yi);
-                return out;
-              });
-
-    T sum = accumulate(y.begin(), y.end(), static_cast<T>(0.0));
-    for_each(y.begin(), y.end(), [sum](T &yi){ yi /= sum;});
-
-    return y;
-  }
-
-  /*
-   * Softmax backward function
-   */
-  input_vector backward(const output_vector& grad_inp)
-  {
-    input_vector grad_out;
-    vector<input_vector> J;
-
-    /*
-     * Compute Jacobian of Softmax
-     */
-    const input_vector y = forward(x);
-    int s_i_j = 0;
-    for (auto y_i: y)
-      {
-        auto row = y;
-        for_each(row.begin(), row.end(), [y_i](T& y_j){ y_j = -y_i * y_j;});
-        row[s_i_j] += y_i;
-        s_i_j++;
-        J.push_back(row);
-      }
-
-    /*
-     * Compute dot product of gradient and Softmax Jacobian
-     */
-    transform(J.begin(), J.end(), grad_out.begin(),
-              [grad_inp](const input_vector& j)
-              {
-                T val = inner_product(j.begin(), j.end(), grad_inp.begin(), 0.0);
-                return val;
-              }
-              );
-
-    return grad_out;
-
-  }
-
-  /*
-   * No trainable weights in softmax
-   */
-  void train(float lr)
-  {
-  }
-
-};
-
 /*
  * Mean Squared Error loss class
  * Parameters:
@@ -560,7 +112,8 @@ struct MSE
    * d_loss/dy[i] = 2 * (y[i] - yhat[i]) / N
    *
    */
-  static array<T, num_inputs> backward(const array<T, num_inputs>& y, const array<T, num_inputs>& yhat)
+  static array<T, num_inputs> backward(const array<T, num_inputs>& y,
+                                       const array<T, num_inputs>& yhat)
   {
     array<T, num_inputs> de_dy;
 
@@ -573,136 +126,6 @@ struct MSE
     return de_dy;
   }
 
-};
-
-/*
- * Categorical Crossentropy loss
- *
- * Forward:
- *  E = - sum(yhat * log(y))
- *
- * Parameters:
- *  num_inputs: number of inputs to loss function.
- *  T: input type, float by defaut.
- */
-template<size_t num_inputs, typename T = float>
-struct CCE
-{
-
-  typedef array<T, num_inputs> input_vector;
-
-  /*
-   * Forward pass computes CCE loss for inputs yhat (label) and y (predicted)
-   */
-  static T forward(const input_vector& yhat, const input_vector& y)
-  {
-    input_vector cce;
-    transform(yhat.begin(), yhat.end(), y.begin(), cce.begin(),
-              [](const T& yhat_i, const T& y_i)
-              {
-                return yhat_i * logf(y_i);
-              }
-              );
-    T loss = accumulate(cce.begin(), cce.end(), 0.0);
-    return -1 * loss;
-  }
-
-  /*
-   * Backward pass computes dloss/dy for inputs yhat (label) and y (predicted):
-   *
-   * dloss/dy = - yhat/y
-   *
-   */
-  static input_vector backward(input_vector yhat, input_vector y)
-  {
-    array<T, num_inputs> de_dy;
-
-    transform(yhat.begin(), yhat.end(), y.begin(), de_dy.begin(),
-              [](const T& yhat_i, const T& y_i)
-              {
-                return -1 * yhat_i / (y_i);
-              }
-              );
-    return de_dy;
-  }
-
-};
-
-
-/*
- * Sequential class template
- *
- *  Creates DNN layer from template list
- *  Implements higher level forward(), backward() and train() functions
- */
-template<typename... T>
-struct Sequential
-{
-  /*
-   * layers array hosld DN layer objects
-   */
-  std::array<std::variant<T...>, sizeof...(T)> layers;
-
-  /*
-   * Sequential constructor
-   */
-  Sequential()
-  {
-    /*
-     * Create DNN layers from the template list
-     */
-    auto create_layers = [this]<std::size_t... I>(std::index_sequence<I...>)
-      {
-        (void(layers[I].template emplace<I>(T())),...);
-      };
-    create_layers(std::make_index_sequence <sizeof...(T)>());
-  }
-
-  /*
-   * Sequential forward pass will call each layer forward() function
-   */
-  template<size_t index=sizeof...(T)-1, typename Tn>
-  auto forward(Tn& x)
-  {
-    if constexpr(index == 0)
-       {
-         return std::get<index>(layers[index]).forward(x);
-       }
-    else
-      {
-	auto y_prev = forward<index-1>(x);
-	return std::get<index>(layers[index]).forward(y_prev);
-      }
-  }
-
-
-  /*
-   * Sequential backward pass will call each layer backward() function
-   */
-  template<size_t index=0, typename Tn>
-  auto backward(Tn& dy)
-  {
-    if constexpr(index == sizeof...(T)-1)
-       {
-         return std::get<index>(layers[index]).backward(dy);
-       }
-    else
-      {
-	auto dy_prev = backward<index+1>(dy);
-	return std::get<index>(layers[index]).backward(dy_prev);
-      }
-  }
-
-  /*
-   * Sequential class train() invokes each layer train() function
-   */
-  void train(float learning_rate)
-  {
-    [this, learning_rate]<std::size_t... I> (std::index_sequence<I...>)
-      {
-	(void(std::get<I>(layers[I]).train(learning_rate)), ...);
-      }(std::make_index_sequence <sizeof...(T)>());
-  }
 };
 
 template<std::size_t input_height,
@@ -813,19 +236,20 @@ struct Conv2D
     const int pad_left = (j < 0) ? (- j) : 0;
     const int pad_right = (j > width_x - width_w) ? (j - width_x + width_w) : 0;
 
-    T sum = std::transform_reduce(w.begin() + pad_top,
-                                  w.end()   - pad_bot,
-                                  x.begin() + pad_top + i,
-                                  static_cast<T>(0),
-                                  std::plus<T>(),
-                                  [j, pad_left, pad_right](auto& w_i, auto& x_i) -> T
-                                    {
-                                      return std::inner_product(w_i.begin() + pad_left,
-                                                                w_i.end()   - pad_right,
-                                                                x_i.begin() + pad_left + j,
-                                                                static_cast<T>(0));
-                                    }
-                                  );
+    T sum =
+      std::transform_reduce(w.begin() + pad_top,
+                            w.end()   - pad_bot,
+                            x.begin() + pad_top + i,
+                            static_cast<T>(0),
+                            std::plus<T>(),
+                            [j, pad_left, pad_right](auto& w_i, auto& x_i) -> T
+                            {
+                              return std::inner_product(w_i.begin() + pad_left,
+                                                        w_i.end()   - pad_right,
+                                                        x_i.begin() + pad_left + j,
+                                                        static_cast<T>(0));
+                            }
+                            );
 
     return sum;
   };
@@ -844,10 +268,13 @@ struct Conv2D
                 for (int input_channel = 0; input_channel < channels_inp; input_channel++)
                   {
                     y[output_channel][i][j] +=
-                      conv<input_height, input_width, kernel_size, kernel_size>(x[input_channel],
-                                                                                weights[output_channel][input_channel],
-                                                                                i - pad_size,
-                                                                                j - pad_size);
+                      conv<input_height,
+                           input_width,
+                           kernel_size,
+                           kernel_size>(x[input_channel],
+                                        weights[output_channel][input_channel],
+                                        i - pad_size,
+                                        j - pad_size);
                   }
               }
           }
@@ -868,10 +295,13 @@ struct Conv2D
                 for (int input_channel = 0; input_channel < channels_inp; input_channel++)
                   {
                     dw[output_channel][input_channel][i][j] +=
-                      conv<input_height, input_width, output_height, output_width>(x[input_channel],
-                                                                                   grad[output_channel],
-                                                                                   i - pad_size,
-                                                                                   j - pad_size);
+                      conv<input_height,
+                           input_width,
+                           output_height,
+                           output_width>(x[input_channel],
+                                         grad[output_channel],
+                                         i - pad_size,
+                                         j - pad_size);
                   }
               }
           }
@@ -879,11 +309,14 @@ struct Conv2D
 
     for (int output_channel = 0; output_channel < channels_out; output_channel++)
       {
-        db[output_channel] += std::accumulate(grad[output_channel].cbegin(), grad[output_channel].cend(),
+        db[output_channel] += std::accumulate(grad[output_channel].cbegin(),
+                                              grad[output_channel].cend(),
                                               static_cast<T>(0),
                                               [](auto total, const auto& grad_i)
                                               {
-                                                return std::accumulate(grad_i.cbegin(), grad_i.cend(), total);
+                                                return std::accumulate(grad_i.cbegin(),
+                                                                       grad_i.cend(),
+                                                                       total);
                                               });
       }
 
@@ -897,7 +330,8 @@ struct Conv2D
               {
                 for (size_t j = 0; j < kernel_size; j++)
                   {
-                    weights_rot180[output_channel][input_channel][i][j] = weights[output_channel][input_channel][i][kernel_size - j - 1];
+                    weights_rot180[output_channel][input_channel][i][j] =
+                      weights[output_channel][input_channel][i][kernel_size - j - 1];
                   }
               }
 
@@ -906,7 +340,8 @@ struct Conv2D
                 for (size_t j = 0; j < kernel_size; j++)
                   {
                     auto t = weights_rot180[output_channel][input_channel][i][j];
-                    weights_rot180[output_channel][input_channel][i][j] = weights_rot180[output_channel][input_channel][kernel_size - i - 1][j];
+                    weights_rot180[output_channel][input_channel][i][j] =
+                      weights_rot180[output_channel][input_channel][kernel_size - i - 1][j];
                     weights_rot180[output_channel][input_channel][kernel_size - i - 1][j] = t;
                   }
               }
@@ -924,10 +359,13 @@ struct Conv2D
                 for (int output_channel = 0; output_channel < channels_out; output_channel++)
                   {
                     grad_out[input_channel][i][j] +=
-                      conv<output_height, output_width, kernel_size, kernel_size>(grad[output_channel],
-                                                                                  weights_rot180[output_channel][input_channel],
-                                                                                  i - pad_size,
-                                                                                  j - pad_size);
+                      conv<output_height,
+                           output_width,
+                           kernel_size,
+                           kernel_size>(grad[output_channel],
+                                        weights_rot180[output_channel][input_channel],
+                                        i - pad_size,
+                                        j - pad_size);
                   }
               }
           }
@@ -949,7 +387,8 @@ struct Conv2D
               {
                 for (size_t j = 0; j < kernel_size; j++)
                   {
-                    weights[output_channel][input_channel][i][j] = weights[output_channel][input_channel][i][j] - learning_rate * dw[output_channel][input_channel][i][j];
+                    auto weight_update = learning_rate * dw[output_channel][input_channel][i][j];
+                    weights[output_channel][input_channel][i][j] -= weight_update ;
                   }
               }
           }
