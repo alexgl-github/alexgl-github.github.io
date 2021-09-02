@@ -18,7 +18,7 @@ auto print_n(const float& x, const char* fmt)
 }
 
 template<typename T>
-auto print_n(T& x, const char* fmt="%7.2f ")
+auto print_n(const T& x, const char* fmt="%7.2f ")
 {
   std::for_each(x.begin(), x.end(),
                 [fmt](const auto& xi)
@@ -178,18 +178,18 @@ struct Flatten
 
 
 /*
- *
+ * 2D convolution class template
  */
-template<int input_height,
-         int input_width,
-         int channels_inp = 1,
-         int channels_out =1,
-         int kernel_size = 3,
-         int stride = 1,
-         bool use_bias = false,
-         typename T = float,
-         T (*weights_initializer)() = const_initializer<>,
-         T (*bias_initializer)() = const_initializer<>>
+template<int input_height,      /* input height */
+         int input_width,       /* input width */
+         int channels_inp = 1,  /* input channels */
+         int channels_out =1,   /* output channels */
+         int kernel_size = 3,   /* kernel size */
+         int stride = 1,        /* stride (currently unused) */
+         bool use_bias = false, /* enable bias flag */
+         typename T = float,    /* convolution data type */
+         T (*weights_initializer)() = const_initializer<>,  /* initializer function for weights */
+         T (*bias_initializer)() = const_initializer<>>     /* initializer function for biases */
 struct Conv2D
 {
   typedef array<T, input_width> input_row;
@@ -226,6 +226,9 @@ struct Conv2D
     initialize(db, const_initializer<>);
   }
 
+  /*
+   * Compute convolution of 2D inputs x and w
+   */
   template<int height_x, int width_x, int height_w, int width_w>
   static T conv (const std::array<std::array<T, width_x>, height_x>& x,
           const std::array<std::array<T, width_w>, height_w>& w,
@@ -254,6 +257,9 @@ struct Conv2D
     return sum;
   };
 
+  /*
+   * Forward path computes convolution of input x and kernel weights w
+   */
   conv_output forward(const conv_input& x)
   {
     conv_output y;
@@ -282,6 +288,12 @@ struct Conv2D
     return y;
   }
 
+  /*
+   * Backward path computes:
+   *  - weight gradient dW
+   *  - bias gradient dB
+   *  - output gradient dX
+   */
   conv_input backward(const conv_input& x,  const conv_output& grad)
   {
     conv_input grad_out = {};
@@ -356,7 +368,9 @@ struct Conv2D
             for (int j = 0; j < input_width; j++)
               {
                 grad_out[input_channel][i][j] = 0.0;
-                for (int output_channel = 0; output_channel < channels_out; output_channel++)
+                for (int output_channel = 0;
+                     output_channel < channels_out;
+                     output_channel++)
                   {
                     grad_out[input_channel][i][j] +=
                       conv<output_height,
@@ -374,6 +388,9 @@ struct Conv2D
     return grad_out;
   }
 
+  /*
+   * Apply previously computed weight and bias gradients dW, dB, reset gradients to 0
+   */
   void train(float learning_rate)
   {
     /*
@@ -387,7 +404,8 @@ struct Conv2D
               {
                 for (size_t j = 0; j < kernel_size; j++)
                   {
-                    auto weight_update = learning_rate * dw[output_channel][input_channel][i][j];
+                    auto weight_update =
+                      learning_rate * dw[output_channel][input_channel][i][j];
                     weights[output_channel][input_channel][i][j] -= weight_update ;
                   }
               }
@@ -412,7 +430,7 @@ struct Conv2D
   }
 
   /*
-   * Reset weigth and bias gradient accumulators
+   * Reset accumulated weight and bias gradients
    */
   void reset_gradients()
   {
@@ -432,7 +450,8 @@ int main(void)
   const int channels_in = 1;
   const int channels_out = 2;
   const int kernel_size = 3;
-  std::array<std::array<std::array<float, input_width>, input_height>, channels_in> x = {};
+  std::array<std::array<std::array<float, input_width>,
+                        input_height>, channels_in> x = {};
 
   initialize(x, gen_dec<input_height * input_width * channels_in>);
 

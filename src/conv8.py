@@ -18,9 +18,12 @@ kernel_size = 3
 # stride of 1
 stride = 1
 
-# conv layer weights initializer is [1, 2, ..., kernel_size * kernel_size * channels_in * channels_out]
+# conv layer weights initializer is:
+#  [1, 2, ..., kernel_size * kernel_size * channels_in * channels_out]
 kernel_weights_num = kernel_size * kernel_size * channels_in * channels_out
-conv_weights = np.reshape(np.linspace(start=1, stop=kernel_weights_num, num=kernel_weights_num),
+conv_weights = np.reshape(np.linspace(start=1,
+                                      stop=kernel_weights_num,
+                                      num=kernel_weights_num),
                           (channels_out, channels_in, kernel_size, kernel_size))
 
 # conv layer bias initializer is array [channels_out, channels_out-1, ..., 1]
@@ -63,7 +66,8 @@ loss_fn = tf.keras.losses.MeanSquaredError()
 print(f"input x:\n{np.squeeze(np.transpose(x, [0, 3, 1, 2]))}")
 
 # Print Conv kernel in OIHW format
-print(f"conv kernel weights:\n {np.transpose(model.trainable_variables[0].numpy(), [3, 2, 0, 1])}")
+print(f"conv kernel weights:\n "\
+      f"{np.transpose(model.trainable_variables[0].numpy(), [3, 2, 0, 1])}")
 
 # print Conv bias
 print(f"conv kernel bias: {model.trainable_variables[1].numpy()}")
@@ -107,5 +111,6 @@ print("dloss_dy:\n{}".format(np.squeeze((np.transpose(dloss_dy, [0, 3, 1, 2]))))
 print("dloss_dx:\n{}".format(np.squeeze(np.transpose(dloss_dx, [0, 3, 1, 2]))))
 
 # print updated conv layer kernel and bias weights
-print(f"updated conv kernel:\n {np.transpose(model.trainable_variables[0].numpy(), [3, 2, 0, 1])}")
+print(f"updated conv kernel:\n "\
+      f"{np.transpose(model.trainable_variables[0].numpy(), [3, 2, 0, 1])}")
 print(f"updated conv bias: {model.trainable_variables[1].numpy()}")
