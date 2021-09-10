@@ -105,7 +105,7 @@ $$
 \frac {\partial \hat Y} {\partial W} = \frac {\partial (X W)} {\partial W} = X^T
 $$
 
-Finally we have equastion for weights update  $$\frac {\partial E} {\partial W}$$
+Finally, weights update  $$\frac {\partial E} {\partial W}$$ is:
 
 $$
 \frac {\partial E} {\partial W} =  \frac {2} {N} ( \hat {Y} - Y ) * X^T
