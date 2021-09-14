@@ -51,7 +51,7 @@ struct ndarray
 
 /*
  * 1 dimentional array definition
- * terminating N-dimentional array recursive template
+ * terminating N-dimentional array recursive ndarray<>
  */
 template <typename T, size_t N>
 struct ndarray<T, N> {
@@ -71,9 +71,54 @@ struct ndarray<T, N> {
 
 };
 
+/*
+ * Apply function for each item in N-dimentional container
+ */
+template<typename T, typename F>
+auto for_each_nd(T& x, F func)
+{
+  func(x);
+}
+
+template<typename T, std::size_t N, typename F>
+auto for_each_nd(std::array<T, N>& x, F func)
+{
+  std::for_each(x.begin(), x.end(), [func](auto& x_i)
+                {
+                  for_each_nd(x_i, func);
+                });
+}
+
 
 /*
- * Print helper function
+ * Incremental and decremental generators
+ */
+template<int initial_value = 0, typename T=float>
+auto generate_inc = [](T& x) { static int i = initial_value; x = static_cast<T>(i++);};
+
+template<int initial_value = 0, typename T=float>
+auto generate_dec = [](T& x) { static int i = initial_value; x= static_cast<T>(i--);};
+
+/*
+ * Constant value generator
+ */
+template <typename T=float>
+struct generate_const
+{
+  T value = 0;
+  generate_const(T init_value=0)
+  {
+    value = init_value;
+  }
+  void operator()(T& x)
+  {
+    x = value;
+  }
+};
+
+
+/*
+ * N-dimentional array print function
  */
 auto print_n(const float& x, const char* fmt)
 {
@@ -90,57 +135,6 @@ auto print_n(const T& x, const char* fmt="%7.2f ")
                 });
   printf("\n");
 }
-
-
-/*
- * Initializer for N-dimentional container using
- * values provided by generator G
- */
-template<typename G>
-auto initialize(float& x, G& generator)
-{
-  x = generator();
-}
-
-template<typename T, typename G>
-auto initialize(T& x, G& generator)
-{
-  std::for_each(x.begin(), x.end(), [generator](auto& x_i)
-                {
-                  initialize(x_i, generator);
-                });
-}
-
-
-/*
- * Incremental and decremental generators
- */
-template<int initial_value = 0, typename T=float>
-auto gen_inc = []() { static int i = initial_value; return static_cast<T>(i++);};
-
-template<int initial_value = 0, typename T=float>
-auto gen_dec = []() { static int i = initial_value; return static_cast<T>(i--);};
-
-/*
- * Constant weight generator
- */
-
-template<typename T = float, const int num = 0, const int det = 1>
-constexpr auto const_initializer = []() -> float
-{
-  return static_cast<T>(num) / static_cast<T>(det);
-};
-
-/*
- * Random uniform generator
- */
-constexpr auto random_uniform_initializer = []() -> float
-{
-  /*
-   * Return random values in the range [-1.0, 1.0]
-   */
-  return 2.0 * static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 1.0;
-};
 
 /*
  * Mean Squared Error loss class
@@ -193,7 +187,10 @@ struct MSE
 };
 
 
-
+/*
+ * Flatten class converts input N-dimentional array to 1 dimentional array
+ * in the forward() call, and applies inverse 1-D to N-D conversion in the backward() call
+ */
 template<typename T = float,
          std::size_t channels = 1,
          std::size_t... Dims>
@@ -246,8 +243,8 @@ template<int channels_out,  /* output channels */
          int stride = 1,        /* stride (currently unused) */
          bool use_bias = false, /* enable bias flag */
          typename T = float,    /* convolution data type */
-         T (*weights_initializer)() = const_initializer<>,  /* initializer function for weights */
-         T (*bias_initializer)() = const_initializer<>>     /* initializer function for biases */
+         void (*weights_initializer)(T&) = generate_const<T>(),  /* initializer function for weights */
+         void (*bias_initializer)(T&) = generate_const<T>()>     /* initializer function for biases */
 struct Conv2D
 {
   /*
@@ -294,10 +291,10 @@ struct Conv2D
    */
   Conv2D()
   {
-    initialize(weights, *weights_initializer);
-    initialize(bias, *bias_initializer);
-    initialize(dw, const_initializer<>);
-    initialize(db, const_initializer<>);
+    for_each_nd(weights, *weights_initializer);
+    for_each_nd(bias, *bias_initializer);
+    for_each_nd(dw, generate_const<T>());
+    for_each_nd(db, generate_const<T>());
   }
 
   /*
@@ -354,13 +351,7 @@ struct Conv2D
 
     for (int output_channel = 0; output_channel < channels_out; output_channel++)
       {
-        for (int i = 0; i < output_height; i++)
-          {
-            for (int j = 0; j < output_width; j++)
-              {
-                y[output_channel][i][j] = use_bias * bias[output_channel];
-              }
-          }
+        for_each_nd(y[output_channel], generate_const{use_bias * bias[output_channel]});
       }
 
     for (int output_channel = 0; output_channel < channels_out; output_channel++)
@@ -402,8 +393,8 @@ struct Conv2D
                   {
                     dw[output_channel][input_channel][i][j] +=
                       conv<pad_size>(x[input_channel],
-                                         grad[output_channel],
-                                         i, j);
+                                     grad[output_channel],
+                                     i, j);
                   }
               }
           }
@@ -451,22 +442,22 @@ struct Conv2D
           }
       }
 
+    for_each_nd(grad_out, generate_const<T>{0.0});
+
     for (int input_channel = 0; input_channel < channels_inp; input_channel++)
       {
-        for (int i = 0; i < input_height; i++)
+        for (int output_channel = 0;
+             output_channel < channels_out;
+             output_channel++)
           {
-            for (int j = 0; j < input_width; j++)
+            for (int i = 0; i < input_height; i++)
               {
-                grad_out[input_channel][i][j] = 0.0;
-                for (int output_channel = 0;
-                     output_channel < channels_out;
-                     output_channel++)
+                for (int j = 0; j < input_width; j++)
                   {
                     grad_out[input_channel][i][j] +=
                       conv<pad_size>(grad[output_channel],
-                                        weights_rot180[output_channel][input_channel],
-                                        i,
-                                        j);
+                                     weights_rot180[output_channel][input_channel],
+                                     i, j);
                   }
               }
           }
@@ -493,7 +484,7 @@ struct Conv2D
                   {
                     auto weight_update =
                       learning_rate * dw[output_channel][input_channel][i][j];
-                    weights[output_channel][input_channel][i][j] -= weight_update ;
+                    weights[output_channel][input_channel][i][j] -= weight_update;
                   }
               }
           }
@@ -521,8 +512,8 @@ struct Conv2D
    */
   void reset_gradients()
   {
-    initialize(dw, const_initializer<>);
-    initialize(db, const_initializer<>);
+    for_each_nd(dw, generate_const<T>());
+    for_each_nd(db, generate_const<T>());
   }
 
 };
@@ -539,9 +530,11 @@ int main(void)
   const int kernel_size = 3;
 
   using input_type = ndarray<float, channels_in, input_height, input_width>;
-  input_type::type x = {};
+  input_type::type x;
 
-  initialize(x, gen_dec<input_height * input_width * channels_in>);
+
+  for_each_nd(x, generate_dec<input_height * input_width * channels_in>);
+
   std::array<float, input_height * input_width * channels_out>  y_true;
   std::fill(y_true.begin(), y_true.end(), 1.0);
 
@@ -556,8 +549,8 @@ int main(void)
          1,                    /* stride */
          true,                 /* use_bias flag */
          float,                /* conv data type */
-         gen_inc<1>,           /* initialier for kernel weights */
-         gen_dec<channels_out> /* initialier for bias weights */
+         generate_inc<1>,           /* increment initialier for kernel weights */
+         generate_dec<channels_out> /* decrement initialier for bias weights */
          > conv;
   Flatten<float, channels_out, input_height, input_width> flatten;
   MSE<input_height * input_width * channels_out> loss_fn;
