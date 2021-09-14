@@ -10,9 +10,9 @@ np.set_printoptions(formatter={'float': '{: 0.3f}'.format}, edgeitems=10, linewi
 input_height = 5
 input_width = 5
 # 1 channel input
-channels_in = 1
+channels_in = 2
 # 2 chnnel output
-channels_out = 2
+channels_out = 1
 # 3x3 kernel size
 kernel_size = 3
 # stride of 1

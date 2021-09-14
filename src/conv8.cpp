@@ -6,8 +6,71 @@
 #include <iterator>
 #include <variant>
 #include <random>
+#include <type_traits>
+
 
 using namespace std;
+
+/*
+ * N-dimentional array
+ */
+template <typename T, std::size_t N, std::size_t... Dims>
+struct ndarray
+{
+
+  /*
+   * Array type and size
+   */
+  using type = std::array<typename ndarray<T, Dims...>::type, N>;
+  static constexpr std::size_t size = {(Dims * ... * N)};
+
+  /*
+   * Get array value at index
+   */
+  static const T& ndarray_at(const typename ndarray<T, N, Dims...>::type & x, size_t index)
+  {
+    auto size = ndarray<T, Dims...>::size;
+    size_t outer_index = index / size;
+    size_t inner_index = index % size;
+    return ndarray<T, Dims...>::ndarray_at(x[outer_index], inner_index);
+  }
+
+  /*
+   * Reference to  array value at index
+   */
+  static T& ndarray_at(typename ndarray<T, N, Dims...>::type & x, size_t index)
+  {
+    /*
+     * For explanation, see "Avoid Duplication in const and Non-const Member Function"
+     * Effective C++ by Scott Meyers
+     */
+    return const_cast<T&>(ndarray_at(static_cast<const ndarray<T, N, Dims...>::type& >(x), index));
+  }
+
+};
+
+/*
+ * 1 dimentional array definition
+ * terminating N-dimentional array recursive template
+ */
+template <typename T, size_t N>
+struct ndarray<T, N> {
+
+  using type = std::array<T, N>;
+  static constexpr std::size_t size = {N};
+
+  static const T& ndarray_at(const std::array<T, N>& x, size_t index)
+  {
+    return x[index];
+  }
+
+  static T& ndarray_at(std::array<T, N>& x, size_t index)
+  {
+    return const_cast<T&>(ndarray_at(x, index));
+  }
+
+};
+
 
 /*
  * Print helper function
@@ -30,7 +93,8 @@ auto print_n(const T& x, const char* fmt="%7.2f ")
 
 
 /*
- *
+ * Initializer for N-dimentional container using
+ * values provided by generator G
  */
 template<typename G>
 auto initialize(float& x, G& generator)
@@ -49,7 +113,7 @@ auto initialize(T& x, G& generator)
 
 
 /*
- * Incremental and decremental initializers
+ * Incremental and decremental generators
  */
 template<int initial_value = 0, typename T=float>
 auto gen_inc = []() { static int i = initial_value; return static_cast<T>(i++);};
@@ -58,7 +122,7 @@ template<int initial_value = 0, typename T=float>
 auto gen_dec = []() { static int i = initial_value; return static_cast<T>(i--);};
 
 /*
- * Constant weight intializer
+ * Constant weight generator
  */
 
 template<typename T = float, const int num = 0, const int det = 1>
@@ -68,7 +132,7 @@ constexpr auto const_initializer = []() -> float
 };
 
 /*
- * Random uniform weights initializer
+ * Random uniform generator
  */
 constexpr auto random_uniform_initializer = []() -> float
 {
@@ -128,51 +192,45 @@ struct MSE
 
 };
 
-template<std::size_t input_height,
-         std::size_t input_width,
-         std::size_t channels,
-         typename T = float>
+
+
+template<typename T = float,
+         std::size_t channels = 1,
+         std::size_t... Dims>
 struct Flatten
 {
-  typedef array<T, input_width> input_row;
-  typedef array<input_row, input_height> input_plane;
-  typedef array<input_plane, channels> input_type;
-  typedef array<T, input_width * input_height * channels> output_type;
+
+  typedef ndarray<float, channels, Dims...> input_array;
+  typedef input_array::type input_type;
+  typedef array<T, input_array::size> output_type;
+  static constexpr std::size_t size_inner = {(Dims * ...)};
 
   output_type forward(const input_type& x)
   {
     output_type y;
-    size_t idx = 0;
-
-    for (size_t i = 0; i < input_height; i++)
+    for (size_t i = 0; i < channels; i++)
       {
-        for (size_t j = 0; j < input_width; j++)
+        for (size_t j = 0; j < size_inner; j++)
           {
-            for (size_t channel = 0; channel < channels; channel++)
-              {
-                y[idx++] = x[channel][i][j];
-              }
+            y[i+j*channels] = ndarray<float, Dims...>::ndarray_at(x[i], j);
           }
       }
     return y;
   }
 
-  input_type backward(const output_type& grad)
+  input_type backward(const output_type& y)
   {
-    input_type grad_out;
-    size_t idx = 0;
+    input_type x;
 
-    for (size_t i = 0; i < input_height; i++)
+    for (size_t i = 0; i < channels; i++)
       {
-        for (size_t j = 0; j < input_width; j++)
+        for (size_t j = 0; j < size_inner; j++)
           {
-            for (size_t channel = 0; channel < channels; channel++)
-              {
-                grad_out[channel][i][j] = grad[idx++];
-              }
+            ndarray<float, Dims...>::ndarray_at(x[i], j) = y[i+j*channels];
           }
       }
-    return grad_out;
+
+    return x;
   }
 };
 
@@ -180,10 +238,10 @@ struct Flatten
 /*
  * 2D convolution class template
  */
-template<int input_height,      /* input height */
+template<int channels_out,  /* output channels */
+         int channels_inp,   /* input channels */
+         int input_height,      /* input height */
          int input_width,       /* input width */
-         int channels_inp = 1,  /* input channels */
-         int channels_out =1,   /* output channels */
          int kernel_size = 3,   /* kernel size */
          int stride = 1,        /* stride (currently unused) */
          bool use_bias = false, /* enable bias flag */
@@ -192,32 +250,48 @@ template<int input_height,      /* input height */
          T (*bias_initializer)() = const_initializer<>>     /* initializer function for biases */
 struct Conv2D
 {
-  typedef array<T, input_width> input_row;
-  typedef array<input_row, input_height> input_plane;
-  typedef array<input_plane, channels_inp> conv_input;
+  /*
+   * Conv layer input
+   */
+  typedef ndarray<T, channels_inp, input_height, input_width> input_array;
+  typedef input_array::type conv_input;
 
+  /*
+   * Conv layer output
+   * Assume output dimention is the same as input dimention
+   * This is equivalet to padding="same" in Keras
+   */
   static const int output_width = input_width;
   static const int output_height = input_height;
+  typedef ndarray<T, channels_out, output_height, output_width> output_array;
+  typedef output_array::type conv_output;
 
-  typedef array<T, output_width> output_row;
-  typedef array<output_row, output_height> output_plane;
-  typedef array<output_plane, channels_out> conv_output;
-
-  typedef array<array<T, kernel_size>, kernel_size> conv_kernel;
   /*
-   * OIHW
+   * Input zero padding required for "same" convolution padding mode.
    */
-  typedef array<array<conv_kernel, channels_inp>, channels_out> conv_weights;
+  static const int pad_size = kernel_size / 2;
+  static constexpr size_t ndims = 2;
+  using ssize_t = std::make_signed_t<std::size_t>;
 
-  typedef array<T, channels_out> conv_bias;
-
+  /*
+   * Weights are in Output, Input, Height, Width (OIHW) format
+   * dw is weights gradient
+   */
+  typedef ndarray<T, channels_out, channels_inp, kernel_size, kernel_size>::type conv_weights;
   conv_weights weights;
-  conv_bias bias;
   conv_weights dw;
+
+  /*
+   * Bias is 1D vector
+   * db is bias gradient
+   */
+  typedef array<T, channels_out> conv_bias;
+  conv_bias bias;
   conv_bias db;
 
-  static const int pad_size = kernel_size / 2;
-
+  /*
+   * Default convolution constructor
+   */
   Conv2D()
   {
     initialize(weights, *weights_initializer);
@@ -227,38 +301,52 @@ struct Conv2D
   }
 
   /*
-   * Compute convolution of 2D inputs x and w
+   * Compute convolution of N-D inputs x and w
    */
-  template<int height_x, int width_x, int height_w, int width_w>
-  static T conv (const std::array<std::array<T, width_x>, height_x>& x,
-          const std::array<std::array<T, width_w>, height_w>& w,
-          int i, int j)
+  template<int pad_size,
+           std::size_t size_x,
+           std::size_t size_w>
+  static T conv(const std::array<T, size_x>& x,
+                 const std::array<T, size_w>& w,
+                 const int idx)
   {
-    const int pad_top = (i < 0) ? (-i) : 0;
-    const int pad_bot = (i > height_x - height_w) ? (i - height_x + height_w) : 0;
-    const int pad_left = (j < 0) ? (- j) : 0;
-    const int pad_right = (j > width_x - width_w) ? (j - width_x + width_w) : 0;
+    const int i = idx - pad_size;
+    const int pad_left  = (i < 0) ? (- i) : 0;
+    const int pad_right =
+      (i > static_cast<int>(size_x) - static_cast<int>(size_w)) ?
+      (i - static_cast<int>(size_x) + static_cast<int>(size_w)) : 0;
+    return std::inner_product(w.begin() + pad_left,
+                              w.end()   - pad_right,
+                              x.begin() + pad_left + i,
+                              static_cast<T>(0));
+  }
 
-    T sum =
-      std::transform_reduce(w.begin() + pad_top,
-                            w.end()   - pad_bot,
-                            x.begin() + pad_top + i,
-                            static_cast<T>(0),
-                            std::plus<T>(),
-                            [j, pad_left, pad_right](auto& w_i, auto& x_i) -> T
-                            {
-                              return std::inner_product(w_i.begin() + pad_left,
-                                                        w_i.end()   - pad_right,
-                                                        x_i.begin() + pad_left + j,
-                                                        static_cast<T>(0));
-                            }
-                            );
+  template<int pad_size,
+           typename type_x, std::size_t size_x,
+           typename type_w, std::size_t size_w,
+           typename... Idx>
+  static T conv(const std::array<type_x, size_x>& x,
+                const std::array<type_w, size_w>& w,
+                const int idx_outer,
+                Idx... idx_inner)
+  {
+    const int i = idx_outer - pad_size;
+    const int pad_left  = (i < 0) ? (- i) : 0;
+    const int pad_right =
+      (i > static_cast<int>(size_x) - static_cast<int>(size_w)) ?
+      (i - static_cast<int>(size_x) + static_cast<int>(size_w)) : 0;
+
+    T sum = 0;
+    for (ssize_t k = pad_left; k < (static_cast<int>(size_w) - pad_right); k ++)
+      {
+        sum += conv<pad_size>(x[i+k], w[k], idx_inner...);
+      }
 
     return sum;
   };
 
   /*
-   * Forward path computes convolution of input x and kernel weights w
+   * Forward path computes 2D convolution of input x and kernel weights w
    */
   conv_output forward(const conv_input& x)
   {
@@ -271,16 +359,22 @@ struct Conv2D
             for (int j = 0; j < output_width; j++)
               {
                 y[output_channel][i][j] = use_bias * bias[output_channel];
-                for (int input_channel = 0; input_channel < channels_inp; input_channel++)
+              }
+          }
+      }
+
+    for (int output_channel = 0; output_channel < channels_out; output_channel++)
+      {
+        for (int input_channel = 0; input_channel < channels_inp; input_channel++)
+          {
+            for (int i = 0; i < output_height; i++)
+              {
+                for (int j = 0; j < output_width; j++)
                   {
                     y[output_channel][i][j] +=
-                      conv<input_height,
-                           input_width,
-                           kernel_size,
-                           kernel_size>(x[input_channel],
-                                        weights[output_channel][input_channel],
-                                        i - pad_size,
-                                        j - pad_size);
+                      conv<pad_size>(x[input_channel],
+                                     weights[output_channel][input_channel],
+                                     i, j);
                   }
               }
           }
@@ -307,13 +401,9 @@ struct Conv2D
                 for (int input_channel = 0; input_channel < channels_inp; input_channel++)
                   {
                     dw[output_channel][input_channel][i][j] +=
-                      conv<input_height,
-                           input_width,
-                           output_height,
-                           output_width>(x[input_channel],
+                      conv<pad_size>(x[input_channel],
                                          grad[output_channel],
-                                         i - pad_size,
-                                         j - pad_size);
+                                         i, j);
                   }
               }
           }
@@ -373,13 +463,10 @@ struct Conv2D
                      output_channel++)
                   {
                     grad_out[input_channel][i][j] +=
-                      conv<output_height,
-                           output_width,
-                           kernel_size,
-                           kernel_size>(grad[output_channel],
+                      conv<pad_size>(grad[output_channel],
                                         weights_rot180[output_channel][input_channel],
-                                        i - pad_size,
-                                        j - pad_size);
+                                        i,
+                                        j);
                   }
               }
           }
@@ -447,24 +534,24 @@ int main(void)
 {
   const int input_height = 5;
   const int input_width = 5;
-  const int channels_in = 1;
-  const int channels_out = 2;
+  const int channels_in = 2;
+  const int channels_out = 1;
   const int kernel_size = 3;
-  std::array<std::array<std::array<float, input_width>,
-                        input_height>, channels_in> x = {};
+
+  using input_type = ndarray<float, channels_in, input_height, input_width>;
+  input_type::type x = {};
 
   initialize(x, gen_dec<input_height * input_width * channels_in>);
-
   std::array<float, input_height * input_width * channels_out>  y_true;
   std::fill(y_true.begin(), y_true.end(), 1.0);
 
   /*
    * Create DNN layers and the loss
    */
-  Conv2D<input_height,         /* input height */
-         input_width,          /* input width */
+  Conv2D<channels_out,         /* number of output channels */
          channels_in,          /* number of input channels */
-         channels_out,         /* number of output channels */
+         input_height,         /* input height */
+         input_width,          /* input width */
          kernel_size,          /* convolution kernel size */
          1,                    /* stride */
          true,                 /* use_bias flag */
@@ -472,7 +559,7 @@ int main(void)
          gen_inc<1>,           /* initialier for kernel weights */
          gen_dec<channels_out> /* initialier for bias weights */
          > conv;
-  Flatten<input_height, input_width, channels_out> flatten;
+  Flatten<float, channels_out, input_height, input_width> flatten;
   MSE<input_height * input_width * channels_out> loss_fn;
 
   printf("input x:\n");
@@ -488,7 +575,7 @@ int main(void)
   auto loss = loss_fn.forward(y_true, y);
 
   printf("output y:\n");
-  print_n(y1);
+  print_n(flatten.backward(y));
 
   printf("loss: %.5f\n", loss);
 
