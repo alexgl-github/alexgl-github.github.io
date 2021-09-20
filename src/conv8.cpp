@@ -115,7 +115,11 @@ static float inner_product_nd(const std::array<type_x, size_x>& x,
   return sum;
 };
 
-template<typename T, int pad_size, typename X, typename W, typename... Idx>
+template<typename T,
+         int pad_size,
+         typename X,
+         typename W,
+         typename... Idx>
 void convolution_nd(T & y,
                     const X & x,
                     const W & w,
@@ -124,7 +128,13 @@ void convolution_nd(T & y,
   y += inner_product_nd<T>(x, w, idx...);
 }
 
-template<typename T, int pad_size, typename Y, std::size_t N, typename X, typename W, typename... Idx>
+template<typename T,
+         int pad_size,
+         typename Y,
+         std::size_t N,
+         typename X,
+         typename W,
+         typename... Idx>
 void convolution_nd(std::array<Y, N> & y,
                  const X & x,
                  const W & w,
