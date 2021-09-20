@@ -12,7 +12,7 @@
 using namespace std;
 
 /*
- * N-dimentional array
+ * N-dimentional array definition
  */
 template <typename T, std::size_t N, std::size_t... Dims>
 struct ndarray
@@ -72,6 +72,71 @@ struct ndarray<T, N> {
 };
 
 /*
+ * Compute convolution of N dimentional inputs x and w
+ */
+template<typename T, std::size_t size_x, std::size_t size_w>
+static T inner_product_nd(const std::array<float, size_x>& x,
+                          const std::array<float, size_w>& w,
+                          const int idx)
+{
+  const int i = idx;
+  const int pad_left  = (i < 0) ? (- i) : 0;
+  const int pad_right =
+    (i > static_cast<int>(size_x) - static_cast<int>(size_w)) ?
+    (i - static_cast<int>(size_x) + static_cast<int>(size_w)) : 0;
+
+  return std::inner_product(w.begin() + pad_left,
+                            w.end()   - pad_right,
+                            x.begin() + pad_left + i,
+                            static_cast<T>(0));
+}
+
+template<typename T,
+         typename type_x, std::size_t size_x,
+         typename type_w, std::size_t size_w,
+         typename... Idx>
+static float inner_product_nd(const std::array<type_x, size_x>& x,
+                              const std::array<type_w, size_w>& w,
+                              const int idx_outer,
+                              Idx... idx_inner)
+{
+  const int i = idx_outer;
+  const int pad_left  = (i < 0) ? (- i) : 0;
+  const int pad_right =
+    (i > static_cast<int>(size_x) - static_cast<int>(size_w)) ?
+    (i - static_cast<int>(size_x) + static_cast<int>(size_w)) : 0;
+
+  float sum = 0;
+  for (ssize_t k = pad_left; k < (static_cast<int>(size_w) - pad_right); k ++)
+    {
+      sum += inner_product_nd<T>(x[i+k], w[k], idx_inner...);
+    }
+
+  return sum;
+};
+
+template<typename T, int pad_size, typename X, typename W, typename... Idx>
+void convolution_nd(T & y,
+                    const X & x,
+                    const W & w,
+                    Idx... idx)
+{
+  y += inner_product_nd<T>(x, w, idx...);
+}
+
+template<typename T, int pad_size, typename Y, std::size_t N, typename X, typename W, typename... Idx>
+void convolution_nd(std::array<Y, N> & y,
+                 const X & x,
+                 const W & w,
+                 Idx... idx)
+{
+  for (int i = 0; i < static_cast<int>(N); i++)
+    {
+      convolution_nd<T, pad_size>(y[i], x, w, idx..., i - pad_size);
+    }
+}
+
+/*
  * Apply function for each item in N-dimentional container
  */
 template<typename T, typename F>
@@ -89,6 +154,24 @@ auto for_each_nd(std::array<T, N>& x, F func)
                 });
 }
 
+/*
+ * N-dimentional array print function
+ */
+auto print_n(const float& x, const char* fmt)
+{
+  printf(fmt, x);
+}
+
+template<typename T>
+auto print_n(const T& x, const char* fmt="%7.2f ")
+{
+  std::for_each(x.begin(), x.end(),
+                [fmt](const auto& xi)
+                {
+                  print_n(xi, fmt);
+                });
+  printf("\n");
+}
 
 /*
  * Incremental and decremental generators
@@ -116,25 +199,6 @@ struct generate_const
   }
 };
 
-
-/*
- * N-dimentional array print function
- */
-auto print_n(const float& x, const char* fmt)
-{
-  printf(fmt, x);
-}
-
-template<typename T>
-auto print_n(const T& x, const char* fmt="%7.2f ")
-{
-  std::for_each(x.begin(), x.end(),
-                [fmt](const auto& xi)
-                {
-                  print_n(xi, fmt);
-                });
-  printf("\n");
-}
 
 /*
  * Mean Squared Error loss class
@@ -297,50 +361,6 @@ struct Conv2D
     for_each_nd(db, generate_const<T>());
   }
 
-  /*
-   * Compute convolution of N-D inputs x and w
-   */
-  template<int pad_size,
-           std::size_t size_x,
-           std::size_t size_w>
-  static T conv(const std::array<T, size_x>& x,
-                 const std::array<T, size_w>& w,
-                 const int idx)
-  {
-    const int i = idx - pad_size;
-    const int pad_left  = (i < 0) ? (- i) : 0;
-    const int pad_right =
-      (i > static_cast<int>(size_x) - static_cast<int>(size_w)) ?
-      (i - static_cast<int>(size_x) + static_cast<int>(size_w)) : 0;
-    return std::inner_product(w.begin() + pad_left,
-                              w.end()   - pad_right,
-                              x.begin() + pad_left + i,
-                              static_cast<T>(0));
-  }
-
-  template<int pad_size,
-           typename type_x, std::size_t size_x,
-           typename type_w, std::size_t size_w,
-           typename... Idx>
-  static T conv(const std::array<type_x, size_x>& x,
-                const std::array<type_w, size_w>& w,
-                const int idx_outer,
-                Idx... idx_inner)
-  {
-    const int i = idx_outer - pad_size;
-    const int pad_left  = (i < 0) ? (- i) : 0;
-    const int pad_right =
-      (i > static_cast<int>(size_x) - static_cast<int>(size_w)) ?
-      (i - static_cast<int>(size_x) + static_cast<int>(size_w)) : 0;
-
-    T sum = 0;
-    for (ssize_t k = pad_left; k < (static_cast<int>(size_w) - pad_right); k ++)
-      {
-        sum += conv<pad_size>(x[i+k], w[k], idx_inner...);
-      }
-
-    return sum;
-  };
 
   /*
    * Forward path computes 2D convolution of input x and kernel weights w
@@ -358,16 +378,7 @@ struct Conv2D
       {
         for (int input_channel = 0; input_channel < channels_inp; input_channel++)
           {
-            for (int i = 0; i < output_height; i++)
-              {
-                for (int j = 0; j < output_width; j++)
-                  {
-                    y[output_channel][i][j] +=
-                      conv<pad_size>(x[input_channel],
-                                     weights[output_channel][input_channel],
-                                     i, j);
-                  }
-              }
+            convolution_nd<T, pad_size>(y[output_channel], x[input_channel], weights[output_channel][input_channel]);
           }
       }
     return y;
@@ -381,25 +392,20 @@ struct Conv2D
    */
   conv_input backward(const conv_input& x,  const conv_output& grad)
   {
-    conv_input grad_out = {};
-
+    /*
+     * Compute weight gradient dw
+     */
     for (int output_channel = 0; output_channel < channels_out; output_channel++)
       {
-        for (int i = 0; i < kernel_size; i++)
+        for (int input_channel = 0; input_channel < channels_inp; input_channel++)
           {
-            for (int j = 0; j < kernel_size; j++)
-              {
-                for (int input_channel = 0; input_channel < channels_inp; input_channel++)
-                  {
-                    dw[output_channel][input_channel][i][j] +=
-                      conv<pad_size>(x[input_channel],
-                                     grad[output_channel],
-                                     i, j);
-                  }
-              }
+            convolution_nd<T, pad_size>(dw[output_channel][input_channel], x[input_channel], grad[output_channel]);
           }
       }
 
+    /*
+     * Compute bias gradient db
+     */
     for (int output_channel = 0; output_channel < channels_out; output_channel++)
       {
         db[output_channel] += std::accumulate(grad[output_channel].cbegin(),
@@ -413,57 +419,21 @@ struct Conv2D
                                               });
       }
 
-    conv_weights weights_rot180;
-    for (int input_channel = 0; input_channel < channels_inp; input_channel++)
+    /*
+     * Compute output gradient dX
+     */
+    conv_input dx = {};
+    for (int output_channel = 0; output_channel < channels_out; output_channel++)
       {
-        for (int output_channel = 0; output_channel < channels_out; output_channel++)
+        for (int input_channel = 0; input_channel < channels_inp; input_channel++)
           {
-
-            for (size_t i = 0; i < kernel_size; i++)
-              {
-                for (size_t j = 0; j < kernel_size; j++)
-                  {
-                    weights_rot180[output_channel][input_channel][i][j] =
-                      weights[output_channel][input_channel][i][kernel_size - j - 1];
-                  }
-              }
-
-            for (size_t i = 0; i < kernel_size/2; i++)
-              {
-                for (size_t j = 0; j < kernel_size; j++)
-                  {
-                    auto t = weights_rot180[output_channel][input_channel][i][j];
-                    weights_rot180[output_channel][input_channel][i][j] =
-                      weights_rot180[output_channel][input_channel][kernel_size - i - 1][j];
-                    weights_rot180[output_channel][input_channel][kernel_size - i - 1][j] = t;
-                  }
-              }
-
+            auto weights_rot180 = weights[output_channel][input_channel];
+            rotate_180<T, kernel_size>(weights_rot180);
+            convolution_nd<T, pad_size>(dx[input_channel], grad[output_channel], weights_rot180);
           }
       }
 
-    for_each_nd(grad_out, generate_const<T>{0.0});
-
-    for (int input_channel = 0; input_channel < channels_inp; input_channel++)
-      {
-        for (int output_channel = 0;
-             output_channel < channels_out;
-             output_channel++)
-          {
-            for (int i = 0; i < input_height; i++)
-              {
-                for (int j = 0; j < input_width; j++)
-                  {
-                    grad_out[input_channel][i][j] +=
-                      conv<pad_size>(grad[output_channel],
-                                     weights_rot180[output_channel][input_channel],
-                                     i, j);
-                  }
-              }
-          }
-      }
-
-    return grad_out;
+    return dx;
   }
 
   /*
@@ -482,8 +452,7 @@ struct Conv2D
               {
                 for (size_t j = 0; j < kernel_size; j++)
                   {
-                    auto weight_update =
-                      learning_rate * dw[output_channel][input_channel][i][j];
+                    auto weight_update =  learning_rate * dw[output_channel][input_channel][i][j];
                     weights[output_channel][input_channel][i][j] -= weight_update;
                   }
               }
@@ -516,6 +485,35 @@ struct Conv2D
     for_each_nd(db, generate_const<T>());
   }
 
+  /*
+   * Rotate square 2D array by 180 degrees
+   */
+  template<typename X, std::size_t N>
+  void rotate_180(typename ndarray<X, N, N>::type& x)
+  {
+    for (std::size_t i = 0; i < N / 2; i++)
+      {
+        for (std::size_t j = 0; j < N; j++)
+          {
+            auto t = x[i][j];
+            x[i][j] = x[N - i - 1][N - j - 1];
+            x[N - i - 1][N - j - 1] = t;
+          }
+      }
+
+    /*
+     * Odd dimension
+     */
+    if (N & 1)
+      {
+        for (std::size_t j = 0; j < N / 2; j++)
+          {
+            auto t = x[N / 2][j];
+            x[N / 2][j] = x[N / 2][N - j - 1];
+            x[N / 2][N - j - 1] = t;
+          }
+      }
+  }
 };
 
 /*
