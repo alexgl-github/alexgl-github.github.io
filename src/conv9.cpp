@@ -914,13 +914,13 @@ int main()
   /*
    * DNN contains several downsampling convolution layers followed by fully connected layer.
    */
-  Sequential< Conv2D<8,
-                     input_channels,
-                     input_height,
-                     input_width,
-                     kernel_size,
-                     1,
-                     false>,
+  Sequential< Conv2D<8,                      /* output channels */
+                     input_channels,         /* input channels */
+                     input_height,           /* input height */
+                     input_width,            /* input width */
+                     kernel_size,            /* convolution kernel size */
+                     1,                      /* stride */
+                     false>,                 /* use bias */
 
               ReLU<float, 0.25f, 8, input_height, input_width>,
 
