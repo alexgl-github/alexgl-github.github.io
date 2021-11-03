@@ -896,7 +896,7 @@ int main()
   std::array<float, num_classes> y_true;
 
   /*
-   * Read CIFAR10 dataset
+   * Parse CIFAR10 dataset
    */
   cifar<num_classes> train_ds({
       "./cifar-10-batches-bin/data_batch_1.bin",
