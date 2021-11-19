@@ -879,10 +879,10 @@ int main()
   const int input_width = 32;
   const int kernel_size = 3;
   const int num_classes = 10;
-  float learning_rate = 0.01;
+  float learning_rate = 0.001;
   const int print_frequency = 20;
   const int batch_size = 50;
-  const int num_epochs = 250;
+  const int num_epochs = 10;
 
   /*
    * Accuracy score
@@ -974,31 +974,9 @@ int main()
 
               ReLU<float, 0.25f, 32, input_height / 8, input_width / 8>,
 
-              Conv2D<32,
-                     32,
-                     input_height / 8,
-                     input_width / 8,
-                     kernel_size,
-                     1,
-                     false>,
+              Flatten<float, 32, input_height / 8, input_width / 8>,
 
-              ReLU<float, 0.25f, 32, input_height / 8, input_width / 8>,
-
-              Conv2D<64,
-                     32,
-                     input_height / 8,
-                     input_width / 8,
-                     kernel_size,
-                     2,
-                     false>,
-
-              ReLU<float, 0.25f, 64, input_height / 16, input_width / 16>,
-
-              Flatten<float, 64, input_height / 16, input_width / 16>,
-
-              Dense<64 * input_height  * input_width / (16 * 16), 64>,
-
-              Dense<64, num_classes>,
+              Dense<32 * input_height  * input_width / (8 * 8), num_classes>,
 
               Softmax<num_classes>> net;
 
